@@ -71,3 +71,23 @@ slice calculate_nft_item_address(cell state_init) inline {
             
     send_raw_message(msg.end_cell(), sending_mode);  
 }
+
+
+() burn_jettons(int query_id, int jetton_amount, slice jetton_wallet_address,
+                slice response_address, int msg_value, int sending_mode) impure inline {
+    builder msg_body = begin_cell()
+                        .store_uint(op::burn_jetton, 32)
+                        .store_uint(query_id, 64)
+                        .store_coins(jetton_amount)
+                        .store_slice(response_address);
+
+    builder msg = begin_cell()
+                .store_uint(0x10, 6) 
+                .store_slice(jetton_wallet_address)
+                .store_coins(msg_value)
+                .store_uint(0, 1 + 4 + 4 + 64 + 32 + 1)
+                .store_uint(1, 1)
+                .store_ref(msg_body.end_cell());
+            
+    send_raw_message(msg.end_cell(), sending_mode);  
+}

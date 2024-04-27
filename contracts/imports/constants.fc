@@ -15,11 +15,11 @@ const int op::burn_jetton             = 0x595f07bc;
 ;; NFT-collection
 const int op::change_owner            = 0x3;
 const int op::change_purchase_info    = 0xa7dd3e8d;
+const int op::add_ref_addresses       = 0x7ae5c1ca;
 const int op::withdraw_ton            = 0x37726bdb;
 const int op::withdraw_jetton         = 0x11c09682;
 
 const int op::buy_wl                  = 0x90612494; 
-const int op::add_ref_addresses       = 0x7ae5c1ca;
 const int op::approve_purchase        = 0x9f48d36d;
 const int op::cancel_purchase         = 0x7d1d7445;
 
@@ -40,6 +40,9 @@ const int op::get_royalty_params      = 0x693d3950;
 const int op::report_royalty_params   = 0xa8cb00ad;
 const int op::claim                   = 0xa769de27;
 const int op::update_sbt_data         = 0xdca3da4c;
+
+;; Sales admin
+const int op::send_commissions     = 0xb96adaea;
 
 
 {- EXCEPTIONS -}
@@ -72,8 +75,10 @@ const int exc::unsupported_op = 0xffff;
 const int min_tons_for_storage = 50000000;   
 const int gas::deploy_sbt      = 50000000;
 const int gas::send_jettons    = 40000000;
+const int gas::burn_jettons    = 30000000;
 const int gas::claim_jettons   = 42000000;
 const int gas::provide_addr    = 10000000;
+const int gas::end_sale        = 100000000;
 
 {- MESSAGE MODES -}
 

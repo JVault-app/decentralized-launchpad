@@ -19,11 +19,14 @@ global cell  storage::commission_conditions;   ;; HashmapE. Key = minimum collec
 
 global cell  storage::purchase_conditions;     ;; Cell with purchases conditions for different WL lvls (Cell)
 global cell  storage::ref_addresses;           ;; HashmapE. Key = ref_address (uint256), Value = slice(cashback_factor(uint32), discount_factor(uin32));
-global cell  storage::commission_factor;       ;; HashmapE. Key = minimum collected ton (Coins), Value = commission factor
+global cell  storage::commission_factors;       ;; HashmapE. Key = minimum collected ton (uint128), Value = commission factor
 
 global int   storage::sale_start_time;         ;; time of the start of sale  (uint32)
 global int   storage::sale_end_time;           ;; time of the end of sale  (uint32)
-global int   storage::max_sold_jettons;        ;; maximum amount of sold jettons (Coins)
+
+global int   storage::allocated_jettons;           ;; maximum amount of sold jettons (Coins)
+global int   storage::liquidity_part_ton;      ;; Percent of collected TON allocated for liquidity, all the remaining TON will go to founder (uint32)
+global int   storage::liquidity_part_jetton;   ;; Percent of jettons allocated for liquidity, remaining will be sold (uint32)
 
 global int   storage::ton_collected;           ;; amount of collected TON (Coins)
 global int   storage::jettons_sold;            ;; amount of sold jettons (Coins)
@@ -33,8 +36,12 @@ global int   storage::first_unlock_size;       ;; percent of tokens unlocked at 
 global int   storage::cycle_length;            ;; time between unlocks in seconds (uint32)
 global int   storage::cycles_number;           ;; number of unlocks excluding initial (uint16)
 
-global int   storage::available_jettons;       ;; Jettons that are currently available for sale (Coins)
 global slice storage::jetton_wallet_address;   ;; jetton wallet address of this smc (MsgAddress)
+global int   storage::jettons_added?;          ;; Were jettons added to smart contract? (uint1)
+global int   storage::sale_finished?;          ;; Were collected TON sent to recipients? (uint1)
+
+
+global int jettons_for_sale;
 
 
 () load_data() impure inline {
@@ -51,11 +58,14 @@ global slice storage::jetton_wallet_address;   ;; jetton wallet address of this 
 
     storage::purchase_conditions   = ds~load_ref();    
     storage::ref_addresses         = ds~load_ref();
-    storage::commission_factor     = ds~load_ref();
+    storage::commission_factors     = ds~load_ref();
 
     storage::sale_start_time       = ds~load_uint(32);
     storage::sale_end_time         = ds~load_uint(32);
-    storage::max_sold_jettons      = ds~load_coins();
+
+    storage::allocated_jettons     = ds~load_coins();
+    storage::liquidity_part_ton    = ds~load_uint(32);
+    storage::liquidity_part_jetton = ds~load_uint(32);
 
     storage::ton_collected         = ds~load_coins();
     storage::jettons_sold          = ds~load_coins();
@@ -65,8 +75,11 @@ global slice storage::jetton_wallet_address;   ;; jetton wallet address of this 
     storage::cycle_length          = ds~load_uint(32);
     storage::cycles_number         = ds~load_uint(16);
 
-    storage::available_jettons     = ds~load_coins();
     storage::jetton_wallet_address = ds~load_msg_addr();
+    storage::jettons_added?        = ds~load_uint(1);
+    storage::sale_finished?        = ds~load_uint(1);
+
+    jettons_for_sale = muldiv(storage::allocated_jettons * storage::jettons_added?, (percent_devider - storage::liquidity_part_jetton), percent_devider);
 }
 
 
@@ -89,7 +102,10 @@ global slice storage::jetton_wallet_address;   ;; jetton wallet address of this 
 
             .store_uint(storage::sale_start_time, 32)
             .store_uint(storage::sale_end_time, 32)
-            .store_coins(storage::max_sold_jettons)
+
+            .store_coins(storage::allocated_jettons)
+            .store_uint(storage::liquidity_part_ton, 32)
+            .store_uint(storage::liquidity_part_jetton, 32)
 
             .store_coins(storage::ton_collected)
             .store_coins(storage::jettons_sold)
@@ -99,11 +115,17 @@ global slice storage::jetton_wallet_address;   ;; jetton wallet address of this 
             .store_uint(storage::cycle_length, 32)
             .store_uint(storage::cycles_number, 16)
             
-            .store_coins(storage::available_jettons)
             .store_slice(storage::jetton_wallet_address)
+            .store_uint(storage::jettons_added?, 1)
+            .store_uint(storage::sale_finished?, 1)
 
         .end_cell()
     );
+}
+
+;; TODO
+() provide_liquidity(int jetton_amount, int ton_amount) {
+    return ();
 }
 
 
@@ -113,10 +135,10 @@ global slice storage::jetton_wallet_address;   ;; jetton wallet address of this 
     storage::jettons_sold += jettons_to_purchase;
 
     throw_unless(exc::sale_not_started, now() > storage::sale_start_time);
-    throw_unless(exc::sale_finished, (now() < storage::sale_end_time) & (storage::jettons_sold < storage::max_sold_jettons));
+    throw_unless(exc::sale_finished, (now() < storage::sale_end_time) & (storage::jettons_sold < storage::allocated_jettons));
     throw_unless(exc::less_than_min_purchase, msg_value >= min_purchase_ton);
     throw_unless(exc::more_than_max_purchase, msg_value <= max_purchase_ton);
-    throw_unless(exc::not_enough_jettons, jettons_to_purchase <= storage::available_jettons);
+    throw_unless(exc::not_enough_jettons, storage::jettons_sold <= jettons_for_sale);
 
     (int worckchain, int to_address_int) = parse_std_addr(to_address);
 
@@ -206,6 +228,32 @@ global slice storage::jetton_wallet_address;   ;; jetton wallet address of this 
         save_data();
         return ();
     }
+    
+    ;; End sale (provide liquidity and send TON to founder & launchpad)
+    if ((now() > storage::sale_end_time) | ((jettons_for_sale <= storage::jettons_sold) & storage::jettons_added?)) {
+        throw_unless(exc::out_of_gas, msg_value >= gas::end_sale);
+        throw_if(exc::sale_finished, storage::sale_finished?);
+
+        int total_used_jettons = muldiv(storage::jettons_sold, percent_devider, (percent_devider - storage::liquidity_part_jetton));
+        
+        int jettons_to_burn = storage::allocated_jettons - total_used_jettons;
+        burn_jettons(0, jettons_to_burn, storage::jetton_wallet_address, sender_address, gas::burn_jettons, mode::simple);
+
+        int jettons_for_liquidity = muldiv(total_used_jettons, storage::liquidity_part_jetton, percent_devider);
+        int ton_for_liquidity = muldiv(storage::ton_collected, storage::liquidity_part_ton, percent_devider);
+        provide_liquidity(jettons_for_liquidity, ton_for_liquidity);
+
+        (_, slice cfs, int success) = storage::commission_factors.udict_get_preveq?(128, storage::ton_collected);
+        int ton_for_launchpad = muldiv(storage::ton_collected, cfs~load_uint(32), percent_devider);
+        send_msg(storage::admin_address, ton_for_launchpad, op::send_commissions, 0, null(), mode::simple);
+
+        int ton_for_founder = storage::ton_collected - ton_for_launchpad - ton_for_liquidity;
+        send_msg(storage::owner_address, ton_for_founder, 0, 0, begin_cell().store_slice("JVault launchpad founder's payout"), mode::simple);
+
+        storage::sale_finished? = 1;
+        save_data();
+        return ();
+    }
 
     int op = (in_msg_body.slice_bits() == 0) ? 0 : in_msg_body~load_uint(32);
     
@@ -255,7 +303,6 @@ global slice storage::jetton_wallet_address;   ;; jetton wallet address of this 
             int ton_to_return = in_msg_body~load_coins();
             send_msg(sbt_owner_address, ton_to_return, 0, 0, begin_cell().store_slice("Unsuccessful purchase"), mode::simple);
 
-            storage::available_jettons += coins_amount;
             storage::jettons_sold -= coins_amount;
             storage::ton_collected -= ton_to_return;
             
@@ -284,9 +331,20 @@ global slice storage::jetton_wallet_address;   ;; jetton wallet address of this 
         return ();
     }
 
-    if (op == op::transfer_notification) {  ;; add more jettons 
-        throw_unless(exc::incorrect_sender, equal_slices(sender_address, storage::jetton_wallet_address));
-        storage::available_jettons += in_msg_body~load_coins();
+    if (op == op::transfer_notification) {  ;; allocate jettons 
+        int transferred_jettons = in_msg_body~load_coins();
+        slice from_address = in_msg_body~load_msg_addr();
+        
+        if (storage::jettons_added? | 
+            (transferred_jettons != storage::allocated_jettons) |
+            (~ equal_slices(sender_address, storage::jetton_wallet_address))) {
+
+            send_jettons(query_id, transferred_jettons, from_address, from_address, sender_address, 0, mode::carry_remaining_gas,
+                             0, begin_cell().store_uint(0, 32).store_slice("Can't add jettons").end_cell());
+            return ();
+        } 
+        
+        storage::jettons_added? = 1;
         
         send_msg(storage::owner_address, 0, op::excesses, 0, null(), mode::carry_remaining_gas);
         save_data();
@@ -391,7 +449,7 @@ cell get_nft_content(int index, cell individual_nft_content) method_id {
 
         storage::sale_start_time,         
         storage::sale_end_time,         
-        storage::max_sold_jettons,      
+        storage::allocated_jettons,      
         
         storage::ton_collected,          
         storage::jettons_sold,           
@@ -401,7 +459,7 @@ cell get_nft_content(int index, cell individual_nft_content) method_id {
         storage::cycle_length,          
         storage::cycles_number,         
 
-        storage::available_jettons,     
+        storage::allocated_jettons,     
         storage::jetton_wallet_address
     );
 }
