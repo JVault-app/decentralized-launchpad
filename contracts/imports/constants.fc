@@ -1,0 +1,94 @@
+{- OP-CODES -}
+
+;; Common 
+const int op::get_storage_data       = 0x5b88e5cc;
+const int op::report_storage_data    = 0xaab4a8ef;
+const int op::excesses               = 0xd53276db;
+
+;; Jettons
+const int op::transfer_jetton         = 0xf8a7ea5;
+const int op::transfer_notification   = 0x7362d09c;
+const int op::provide_wallet_address  = 0x2c76b973;
+const int op::take_wallet_address     = 0xd1735400;
+const int op::burn_jetton             = 0x595f07bc;
+
+;; NFT-collection
+const int op::change_owner            = 0x3;
+const int op::change_purchase_info    = 0xa7dd3e8d;
+const int op::withdraw_ton            = 0x37726bdb;
+const int op::withdraw_jetton         = 0x11c09682;
+
+const int op::buy_wl                  = 0x90612494; 
+const int op::add_ref_addresses       = 0x7ae5c1ca;
+const int op::approve_purchase        = 0x9f48d36d;
+const int op::cancel_purchase         = 0x7d1d7445;
+
+;; SBT
+const int op::transfer                = 0x5fcc3d14;
+const int op::request_owner           = 0xd0c3bfea;
+const int op::owner_info              = 0x0dd607e3;
+const int op::prove_ownership         = 0x04ded148;
+const int op::ownership_proof         = 0x0524c7ae;
+const int op::ownership_proof_bounced = 0xc18e86d2;
+const int op::destroy                 = 0x1f04537a;
+const int op::revoke                  = 0x6f89f5e3;
+const int op::take_excess             = 0xd136d3b3;
+const int op::excesses                = 0xd53276db;
+const int op::get_static_data         = 0x2fcb26a2;
+const int op::report_static_data      = 0x8b771735;
+const int op::get_royalty_params      = 0x693d3950;
+const int op::report_royalty_params   = 0xa8cb00ad;
+const int op::claim                   = 0xa769de27;
+const int op::update_sbt_data         = 0xdca3da4c;
+
+
+{- EXCEPTIONS -}
+
+const int exc::out_of_gas = 13;
+
+const int exc::less_than_min_purchase = 41;
+const int exc::more_than_max_purchase = 42;
+const int exc::incorrect_jetton = 43;
+const int exc::not_unlocked_yet = 44;
+const int exc::not_enough_jettons = 45;
+
+const int exc::sale_not_started = 46;
+const int exc::sale_finished = 47;
+const int exc::incorrect_sender = 48;
+
+const int exc::not_claimed_yet = 49;
+const int exc::nothing_to_claim = 50;
+const int exc::int_out_of_range = 51;
+const int exc::nft_burned = 52;
+const int exc::user_not_in_wl = 53;
+
+
+const int exc::wrong_chain = 333;
+const int exc::unsupported_op = 0xffff;
+
+
+{- GAS -}
+
+const int min_tons_for_storage = 50000000;   
+const int gas::deploy_sbt      = 50000000;
+const int gas::send_jettons    = 40000000;
+const int gas::claim_jettons   = 42000000;
+const int gas::provide_addr    = 10000000;
+
+{- MESSAGE MODES -}
+
+const int mode::simple                  = 0;
+const int mode::carry_remaining_gas     = 64;
+const int mode::carry_remaining_balance = 128;
+
+const int mode::pay_fees_separately     = 1;
+const int mode::ignore_errors           = 2;
+const int mode::bounce_on_fail          = 16;
+const int mode::selfdestruct_on_empty   = 32;
+
+
+{- OTHER -}
+
+const int   percent_devider = 1000000000;
+const slice burn_address    = "EQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAM9c"a;
+const int   uint_256_max    = 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff;
