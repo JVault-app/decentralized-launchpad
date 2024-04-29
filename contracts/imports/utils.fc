@@ -21,8 +21,8 @@ slice null_addr() asm "b{00} PUSHSLICE";
 }
 
 
-cell calculate_nft_item_state_init(int item_index, cell nft_item_code) inline {
-    cell data = begin_cell().store_uint(item_index, 64).store_slice(my_address()).end_cell();
+cell calculate_nft_item_state_init(int item_index, cell nft_item_code, slice collection_address) inline {
+    cell data = begin_cell().store_uint(item_index, 64).store_slice(collection_address).end_cell();
     return begin_cell().store_uint(0, 2).store_dict(nft_item_code).store_dict(data).store_uint(0, 1).end_cell();
 }
 

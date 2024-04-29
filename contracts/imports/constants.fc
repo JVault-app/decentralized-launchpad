@@ -39,6 +39,7 @@ const int op::report_static_data      = 0x8b771735;
 const int op::get_royalty_params      = 0x693d3950;
 const int op::report_royalty_params   = 0xa8cb00ad;
 const int op::claim                   = 0xa769de27;
+const int op::request_refund          = 0x1075d7a3;
 const int op::update_sbt_data         = 0xdca3da4c;
 
 ;; ref wallet
@@ -70,7 +71,8 @@ const int exc::int_out_of_range = 51;
 const int exc::nft_burned = 52;
 const int exc::user_not_in_wl = 53;
 const int exc::sale_failed = 54;
-
+const int exc::sale_succeed = 55;
+const int exc::refund_requested = 56;
 
 const int exc::wrong_chain = 333;
 const int exc::unsupported_op = 0xffff;
