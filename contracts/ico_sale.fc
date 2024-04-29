@@ -1,13 +1,7 @@
-{- 
-JVT private sale smart contract. Implements lockup period, linear vesting, minimum purchase limit and 
-different conditions for whitelisted and not whitelisted addresses.
-It is possible to restrict not whitelisted addresses from participating in sale buy setting "price devider" to zero.
--}
 #include "imports/stdlib.fc";
 #include "imports/constants.fc";
 #include "imports/utils.fc";
 
-const int tons_for_gas = 80000000; ;; 0.08 TON
 
 global int   storage::init?;
 
@@ -21,7 +15,6 @@ global cell  storage::purchase_conditions;     ;; Cell with purchases conditions
 global cell  storage::commission_factors;      ;; HashmapE. Key = minimum collected ton (uint128), Value = commission factor
 
 global int   storage::default_cashback;        ;; cashback factor for default users (uint32)
-global int   storage::default_discount;        ;; discount factor for default users (uint32)
 global cell  storage::refs_dict;               ;; HashmapE. Key = ref_address (uint256), Value = slice(cashback_factor(uint32), discount_factor_factor(uin32));
 global cell  storage::ref_wallet_code;         ;; Code of the ref_wallet smart contract (Cell)
 
@@ -66,7 +59,6 @@ global int jettons_for_sale;
     
     slice ref_conditions           = ds~load_ref().begin_parse();
     storage::default_cashback      = ds~load_uint(32);
-    storage::default_discount      = ds~load_uint(32);
     storage::refs_dict             = ds~load_dict();
     storage::ref_wallet_code       = ds~load_ref(); 
 
@@ -113,7 +105,6 @@ global int jettons_for_sale;
             .store_ref(
                 begin_cell()
                     .store_uint(storage::default_cashback, 32)
-                    .store_uint(storage::default_discount, 32)
                     .store_dict(storage::refs_dict)
                     .store_ref(storage::ref_wallet_code)
                 .end_cell()
@@ -149,15 +140,15 @@ global int jettons_for_sale;
 }
 
 
-() sell_tokens(int msg_value, slice buyer_address, int price_factor, int price_devider, int min_purchase_ton, int max_purchase_ton, slice from_user, int cashback_factor) impure inline {
-    msg_value -= tons_for_gas;
+() sell_tokens(int msg_value, slice buyer_address, int price_factor, int price_devider, int min_purchase_ton, int max_purchase_ton, slice ref_address, int cashback_factor) impure inline {
+    msg_value -= gas::purchase;
     int jettons_to_purchase = muldiv(msg_value, price_devider, price_factor);
     storage::jettons_sold += jettons_to_purchase;
     int ref_cashback = muldiv(msg_value, cashback_factor, percent_devider);
     storage::ton_collected += msg_value - ref_cashback;
 
     throw_unless(exc::sale_not_started, now() > storage::sale_start_time);
-    throw_unless(exc::sale_finished, (now() < storage::sale_end_time) & (storage::jettons_sold < storage::allocated_jettons));
+    throw_unless(exc::sale_finished, now() < storage::sale_end_time);
     throw_unless(exc::less_than_min_purchase, msg_value >= min_purchase_ton);
     throw_unless(exc::more_than_max_purchase, msg_value <= max_purchase_ton);
     throw_unless(exc::not_enough_jettons, storage::jettons_sold <= jettons_for_sale);
@@ -179,7 +170,7 @@ global int jettons_for_sale;
                             .store_uint(storage::cycles_number, 16);
     if (cashback_factor) {
         sbt_message = sbt_message.store_dict(
-            begin_cell().store_slice(from_user).store_uint(cashback_factor, 32).end_cell()
+            begin_cell().store_slice(ref_address).store_uint(cashback_factor, 32).end_cell()
         );
     }
     else {
@@ -278,13 +269,12 @@ global int jettons_for_sale;
         (int workchain, int from_address_int) = parse_std_addr(from_address);
 
         (slice refs_conditions, int success) = storage::refs_dict.udict_get?(256, from_address_int);
-        if (success) {
-            discount_factor = refs_conditions~load_uint(32);  ;; special value
-            cashback_factor = refs_conditions~load_uint(32);  ;; special value
+        if (success) {  ;; special conditions
+            discount_factor = refs_conditions~load_uint(32);  
+            cashback_factor = refs_conditions~load_uint(32);
         }
-        else {
-            discount_factor = storage::default_discount;
-            cashback_factor = storage::default_cashback;
+        else {  ;; default conditions
+            cashback_factor = storage::default_cashback; 
         }
         ref_address = get_address_by_state_init(calculate_ref_wallet_state_init(from_address, storage::ref_wallet_code, storage::sale_end_time  ));
     }
@@ -339,7 +329,7 @@ global int jettons_for_sale;
         throw_unless(exc::out_of_gas, msg_value >= gas::end_sale);
         throw_if(exc::sale_finished, storage::sale_finished?);
         finish_sale(sender_address);
-        
+
         return ();
     }
     
@@ -365,9 +355,9 @@ global int jettons_for_sale;
         int min_purchase_ton = purchase_conditions_parsed~load_coins();
         int max_purchase_ton = purchase_conditions_parsed~load_coins();
 
-        (slice from_user, int discount_factor, int cashback_factor) = get_referral_data(in_msg_body);
+        (slice ref_address, int discount_factor, int cashback_factor) = get_referral_data(in_msg_body);
 
-        sell_tokens(msg_value, sender_address, price_factor * (percent_devider - discount_factor), price_devider * percent_devider, min_purchase_ton, max_purchase_ton, from_user, cashback_factor);
+        sell_tokens(msg_value, sender_address, price_factor * (percent_devider - discount_factor), price_devider * percent_devider, min_purchase_ton, max_purchase_ton, ref_address, cashback_factor);
         return ();
     }
     
@@ -403,6 +393,7 @@ global int jettons_for_sale;
         return ();
     }
 
+    ;; message from ref_wallet
     if (op == op::claim_ref) {
         throw_if(exc::sale_failed, storage::ton_collected < storage::min_ton_collected);
 
@@ -415,21 +406,23 @@ global int jettons_for_sale;
         return ();
     }
 
-    if (op == op::take_wallet_address) {  ;; change jetton wallet address (used only once)
+    ;; set jetton wallet address (used only once)
+    if (op == op::take_wallet_address) {  
         throw_unless(exc::incorrect_sender, equal_slices(sender_address, storage::jetton_wallet_address));
         storage::jetton_wallet_address = in_msg_body~load_msg_addr();
         save_data();
         return ();
     }
 
-    if (op == op::transfer_notification) {  ;; allocate jettons 
+    ;; allocate jettons (used only once)
+    if (op == op::transfer_notification) { 
         int transferred_jettons = in_msg_body~load_coins();
         slice from_address = in_msg_body~load_msg_addr();
         
         if (storage::jettons_added? | 
             (transferred_jettons != storage::allocated_jettons) |
             (~ equal_slices(sender_address, storage::jetton_wallet_address))) {
-
+            ;; try to return jettons back
             send_jettons(query_id, transferred_jettons, from_address, from_address, sender_address, 0, mode::carry_remaining_gas,
                              0, begin_cell().store_uint(0, 32).store_slice("Can't add jettons").end_cell());
             return ();
@@ -442,7 +435,7 @@ global int jettons_for_sale;
         return ();
     }
 
-    ;; Admin commands
+    ;; Admin commands (TODO)
     throw_unless(exc::incorrect_sender, equal_slices(sender_address, storage::admin_address));
 
     if (op == op::change_owner) {
