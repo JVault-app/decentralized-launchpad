@@ -57,7 +57,7 @@ global int   storage::collected_ton;
     int op = in_msg_body~load_uint(32);
     int query_id = in_msg_body~load_uint(64);
 
-    if (op == op::update_sbt_data) {
+    if (op == op::update_ref_wallet) {
         throw_unless(exc::incorrect_sender, equal_slices(sender_address, storage::collection_address));
         storage::collected_ton += in_msg_body~load_coins();
 

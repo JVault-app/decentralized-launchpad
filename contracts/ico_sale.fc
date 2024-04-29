@@ -234,6 +234,41 @@ global int jettons_for_sale;
 }
 
 
+() finish_sale(slice sender_address) {
+    raw_reserve(0, 4);
+
+    ;; Sale failed
+    if (storage::ton_collected < storage::min_ton_collected) { 
+        send_jettons(0, storage::allocated_jettons, storage::owner_address, sender_address, storage::jetton_wallet_address,
+                        gas::send_jettons, mode::simple, 0, begin_cell().store_uint(0, 32).store_slice("Unfortunately, your tokensale was unsuccessful").end_cell());   
+    }
+    ;; Sale succeed
+    else {
+        int total_used_jettons = muldiv(storage::jettons_sold, percent_devider, (percent_devider - storage::liquidity_part_jetton));
+        
+        int jettons_to_burn = storage::allocated_jettons - total_used_jettons;
+        burn_jettons(0, jettons_to_burn, storage::jetton_wallet_address, sender_address, gas::burn_jettons, mode::simple);
+
+        int jettons_for_liquidity = muldiv(total_used_jettons, storage::liquidity_part_jetton, percent_devider);
+        
+        int ton_for_liquidity = muldiv(storage::ton_collected, storage::liquidity_part_ton, percent_devider);
+        provide_liquidity(jettons_for_liquidity, ton_for_liquidity);
+
+        (_, slice cfs, int success) = storage::commission_factors.udict_get_preveq?(128, storage::ton_collected);
+        int ton_for_launchpad = muldiv(storage::ton_collected, cfs~load_uint(32), percent_devider);
+        send_msg(storage::admin_address, ton_for_launchpad, op::send_commissions, 0, null(), mode::simple);
+
+        int ton_for_founder = storage::ton_collected - ton_for_launchpad - ton_for_liquidity;
+        send_msg(storage::owner_address, ton_for_founder, 0, 0, begin_cell().store_slice("JVault launchpad founder's payout"), mode::simple);
+    }
+
+    send_msg(sender_address, 0, op::excesses, 0, null(), 128);
+    storage::sale_finished? = 1;
+    save_data();
+    return ();
+}
+
+
 (slice, int, int) get_referral_data(slice in_msg_body) inline {
     slice ref_address = null();
     int discount_factor = 0;
@@ -261,7 +296,13 @@ global int jettons_for_sale;
     slice cs = in_msg_full.begin_parse();
     int flags = cs~load_uint(4);
 
-    if (flags & 1) {  ;; TODO Handle bounce from undeployed ref_wallets to increase ton_collected
+    if (flags & 1) {
+        in_msg_body~skip_bits(32);
+        int op = in_msg_body~load_uint(32);
+        if (op == op::update_ref_wallet) {  ;; Handle bounced messages from undeployed ref_wallets
+            storage::ton_collected += in_msg_body~load_coins();
+            save_data();
+        }
         return ();
     }
 
@@ -297,36 +338,8 @@ global int jettons_for_sale;
     if ((now() > storage::sale_end_time) & (op == 0)) {
         throw_unless(exc::out_of_gas, msg_value >= gas::end_sale);
         throw_if(exc::sale_finished, storage::sale_finished?);
-
-        raw_reserve(0, 4);
-        ;; Sale failed
-        if (storage::ton_collected < storage::min_ton_collected) { 
-            send_jettons(0, storage::allocated_jettons, storage::owner_address, sender_address, storage::jetton_wallet_address,
-                         gas::send_jettons, mode::simple, 0, begin_cell().store_uint(0, 32).store_slice("Unfortunately, your tokensale was unsuccessful").end_cell());   
-        }
-        ;; Sale succeed
-        else {
-            int total_used_jettons = muldiv(storage::jettons_sold, percent_devider, (percent_devider - storage::liquidity_part_jetton));
-            
-            int jettons_to_burn = storage::allocated_jettons - total_used_jettons;
-            burn_jettons(0, jettons_to_burn, storage::jetton_wallet_address, sender_address, gas::burn_jettons, mode::simple);
-
-            int jettons_for_liquidity = muldiv(total_used_jettons, storage::liquidity_part_jetton, percent_devider);
-            
-            int ton_for_liquidity = muldiv(storage::ton_collected, storage::liquidity_part_ton, percent_devider);
-            provide_liquidity(jettons_for_liquidity, ton_for_liquidity);
-
-            (_, slice cfs, int success) = storage::commission_factors.udict_get_preveq?(128, storage::ton_collected);
-            int ton_for_launchpad = muldiv(storage::ton_collected, cfs~load_uint(32), percent_devider);
-            send_msg(storage::admin_address, ton_for_launchpad, op::send_commissions, 0, null(), mode::simple);
-
-            int ton_for_founder = storage::ton_collected - ton_for_launchpad - ton_for_liquidity;
-            send_msg(storage::owner_address, ton_for_founder, 0, 0, begin_cell().store_slice("JVault launchpad founder's payout"), mode::simple);
-        }
-
-        send_msg(sender_address, 0, op::excesses, 0, null(), 128);
-        storage::sale_finished? = 1;
-        save_data();
+        finish_sale(sender_address);
+        
         return ();
     }
     
