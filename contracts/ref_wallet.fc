@@ -1,0 +1,121 @@
+#pragma version >=0.4.0;
+#include "imports/stdlib.fc";
+#include "imports/constants.fc";
+#include "imports/utils.fc";
+
+
+;; Default SBT
+global slice storage::owner_address;
+global slice storage::collection_address;
+global int   storage::init?;
+global int   storage::sale_end_time;
+global int   storage::collected_ton;
+
+
+() load_data() impure inline {
+    slice ds = get_data().begin_parse();
+
+    storage::owner_address      = ds~load_msg_addr();
+    storage::collection_address = ds~load_msg_addr();
+    storage::init?              = ds~load_uint(1);
+
+    if (storage::init?) {
+        storage::sale_end_time  = ds~load_uint(32);
+        storage::collected_ton  = ds~load_coins();
+    }
+}
+
+
+() save_data() impure {
+    set_data(
+        begin_cell()
+            .store_slice(storage::owner_address)
+            .store_slice(storage::collection_address)
+            .store_uint(storage::init?, 1)
+            .store_uint(storage::sale_end_time, 32)
+            .store_coins(storage::collected_ton)
+        .end_cell()
+    );
+}
+
+
+() recv_internal(int my_balance, int msg_value, cell in_msg_full, slice in_msg_body) impure {
+    ;; Default SBT start
+    slice cs = in_msg_full.begin_parse();
+    int flags = cs~load_uint(4);
+    slice sender_address = cs~load_msg_addr();
+
+    load_data();
+
+    ifnot (storage::init?) {
+        throw_unless(405, equal_slices(sender_address, storage::collection_address));
+        storage::collected_ton = 0;
+        save_data();
+        return ();
+    }
+
+    int op = in_msg_body~load_uint(32);
+    int query_id = in_msg_body~load_uint(64);
+
+    if (op == op::update_sbt_data) {
+        throw_unless(exc::incorrect_sender, equal_slices(sender_address, storage::collection_address));
+        storage::collected_ton += in_msg_body~load_coins();
+
+        save_data();
+        return ();
+    }
+    
+    if (op == op::claim_ref) {
+        throw_unless(exc::incorrect_sender, equal_slices(storage::owner_address, sender_address));
+        throw_unless(exc::sale_not_finished, now() >= storage::sale_end_time);
+        throw_unless(exc::nothing_to_claim, storage::collected_ton > min_tons_for_storage);
+
+        send_msg(storage::collection_address, gas::claim_ref, op::claim_ref, query_id,
+                 begin_cell().store_slice(storage::owner_address).store_coins(storage::collected_ton), mode::simple);  
+        send_msg(storage::owner_address, 0, op::excesses, query_id, null(), mode::carry_remaining_balance);
+        storage::collected_ton = 0;
+
+        save_data();
+        return (); 
+    }
+
+    throw(0xffff);
+}
+
+
+;;
+;;  GET Methods
+;;
+
+;; (int, int, slice, slice, cell) get_nft_data() method_id {
+;;     load_data();
+;;     return (storage::init?, storage::index, storage::collection_address, storage::owner_address, storage::content);
+;; }
+
+;; slice get_authority_address() method_id {
+;;     load_data();
+;;     return storage::authority_address;
+;; }
+
+;; int get_revoked_time() method_id {
+;;     load_data();
+;;     return storage::revoked_at;
+;; }
+
+
+;; (int, slice, int, int, int, int, int, int, int, cell) get_storage_data() method_id {
+;;     load_data();
+
+;;     return (
+;;         storage::index,
+;;         storage::owner_address,
+;;         storage::purchased_jettons,
+;;         storage::collected_ton,
+;;         storage::claimed_times,
+;;         storage::first_unlock_time,
+;;         storage::first_unlock_size,
+;;         storage::cycle_length,
+;;         storage::cycles_number,
+;;         storage::ref_data
+;;     );      
+;; }

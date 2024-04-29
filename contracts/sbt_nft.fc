@@ -34,7 +34,7 @@ global cell  storage::ref_data;             ;; data about invitee
         storage::init?             = true;
         storage::owner_address     = begin_cell().store_uint(1024, 11).store_uint(storage::index, 256).end_cell().begin_parse();
         storage::content           = ds~load_ref();
-        storage::authority_address = "EQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAM9c"a;
+        storage::authority_address = null_addr();
         storage::revoked_at        = 0;
 
         storage::purchased_jettons = ds~load_coins();
@@ -179,15 +179,6 @@ global cell  storage::ref_data;             ;; data about invitee
         return ();
     }
 
-    if (op == op::revoke) {
-        throw_unless(401, equal_slices(storage::authority_address, sender_address));
-        throw_unless(403, storage::revoked_at == 0);
-
-        storage::revoked_at = now();
-        save_data();
-        return ();
-    }
-
     if (op == op::take_excess) {
         throw_unless(401, equal_slices(storage::owner_address, sender_address));
 
@@ -217,7 +208,7 @@ global cell  storage::ref_data;             ;; data about invitee
             throw_unless(exc::nothing_to_claim, available_percent);
             int available_jettons = muldiv(storage::purchased_jettons, available_percent, percent_devider);
             send_msg(storage::collection_address, gas::claim_jettons, op::claim, query_id, 
-                     begin_cell().store_uint(storage::index, 256).store_coins(available_jettons), mode::carry_remaining_gas);
+                     begin_cell().store_uint(storage::index, 256).store_coins(available_jettons).store_coins(storage::collected_ton), mode::carry_remaining_gas);
 
             storage::claimed_times = total_unlocks; 
             save_data();
@@ -230,7 +221,7 @@ global cell  storage::ref_data;             ;; data about invitee
 
     if (op == op::destroy) {
         throw_unless(exc::incorrect_sender, equal_slices(storage::owner_address, sender_address));
-        throw_unless(exc::not_claimed_yet, storage::claimed_times == storage::cycles_number + 1);  ;; can burn SBT only after all claims
+        throw_unless(exc::sale_not_finished, storage::claimed_times == storage::cycles_number + 1);  ;; can burn SBT only after all claims
 
         send_msg(sender_address, 0, op::excesses, query_id, null(), 128);
         storage::owner_address = null_addr();

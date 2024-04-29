@@ -41,6 +41,10 @@ const int op::report_royalty_params   = 0xa8cb00ad;
 const int op::claim                   = 0xa769de27;
 const int op::update_sbt_data         = 0xdca3da4c;
 
+;; ref wallet
+const int op::update_ref_wallet       = 0x940298fc;
+const int op::claim_ref               = 0x1f7b4e41;
+
 ;; Sales admin
 const int op::send_commissions     = 0xb96adaea;
 
@@ -57,13 +61,15 @@ const int exc::not_enough_jettons = 45;
 
 const int exc::sale_not_started = 46;
 const int exc::sale_finished = 47;
-const int exc::incorrect_sender = 48;
+const int exc::sale_not_finished = 48;
 
-const int exc::not_claimed_yet = 49;
+const int exc::incorrect_sender = 49;
+
 const int exc::nothing_to_claim = 50;
 const int exc::int_out_of_range = 51;
 const int exc::nft_burned = 52;
 const int exc::user_not_in_wl = 53;
+const int exc::sale_failed = 54;
 
 
 const int exc::wrong_chain = 333;
@@ -79,6 +85,8 @@ const int gas::burn_jettons    = 30000000;
 const int gas::claim_jettons   = 42000000;
 const int gas::provide_addr    = 10000000;
 const int gas::end_sale        = 100000000;
+const int gas::update_wallet   = 2000000;
+const int gas::claim_ref       = 2000000;
 
 {- MESSAGE MODES -}
 
