@@ -41,13 +41,14 @@ const int op::report_royalty_params   = 0xa8cb00ad;
 const int op::claim                   = 0xa769de27;
 const int op::request_refund          = 0x1075d7a3;
 const int op::update_sbt_data         = 0xdca3da4c;
+const int op::end_sale                = 0xcb81bc08;
 
 ;; ref wallet
 const int op::update_ref_wallet       = 0x940298fc;
 const int op::claim_ref               = 0x1f7b4e41;
 
 ;; Sales admin
-const int op::send_commissions     = 0xb96adaea;
+const int op::send_commissions        = 0xb96adaea;
 
 
 {- EXCEPTIONS -}
@@ -72,7 +73,9 @@ const int exc::nft_burned = 52;
 const int exc::user_not_in_wl = 53;
 const int exc::sale_failed = 54;
 const int exc::sale_succeed = 55;
-const int exc::refund_requested = 56;
+const int exc::refund_requested = 56
+;const int exc::already_inited = 57;
+
 
 const int exc::wrong_chain = 333;
 const int exc::unsupported_op = 0xffff;

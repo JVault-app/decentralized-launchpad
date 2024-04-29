@@ -1,5 +1,6 @@
 slice null_addr() asm "b{00} PUSHSLICE";
 
+cell  preload_ref_index(slice s, int n) asm "PLDREFVAR";
 
 () send_msg(slice to_address, int amount, int op, int query_id, builder payload, int send_mode) impure inline {
     var body = begin_cell().store_uint(op, 32);

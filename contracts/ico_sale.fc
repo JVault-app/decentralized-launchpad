@@ -46,7 +46,7 @@ global int jettons_for_sale;
 () load_data() impure inline {
     slice ds = get_data().begin_parse();
     
-    storage::init?                 = ds~load_uint(1);
+    storage::init?                 = ds~load_int(1);
 
     slice collection_info = ds~load_ref().begin_parse();
     storage::admin_address         = collection_info~load_msg_addr();
@@ -81,17 +81,16 @@ global int jettons_for_sale;
     storage::cycles_number         = ds~load_uint(16);
 
     storage::jetton_wallet_address = ds~load_msg_addr();
-    storage::jettons_added?        = ds~load_uint(1);
-    storage::sale_finished?        = ds~load_uint(1);
-
-    jettons_for_sale = muldiv(storage::allocated_jettons * storage::jettons_added?, (percent_devider - storage::liquidity_part_jetton), percent_devider);
+    storage::jettons_added?        = ds~load_int(1);
+    storage::sale_finished?        = ds~load_int(1);
+    jettons_for_sale = storage::jettons_added? ? muldiv(storage::allocated_jettons, (percent_devider - storage::liquidity_part_jetton), percent_devider) : 0;
 }
 
 
 () save_data() impure inline {
     set_data(
         begin_cell()
-            .store_uint(storage::init?, 1)
+            .store_int(storage::init?, 1)
             .store_ref(
                 begin_cell()
                     .store_slice(storage::admin_address)
@@ -130,8 +129,8 @@ global int jettons_for_sale;
             .store_uint(storage::cycles_number, 16)
             
             .store_slice(storage::jetton_wallet_address)
-            .store_uint(storage::jettons_added?, 1)
-            .store_uint(storage::sale_finished?, 1)
+            .store_int(storage::jettons_added?, 1)
+            .store_int(storage::sale_finished?, 1)
 
         .end_cell()
     );
@@ -150,8 +149,6 @@ global int jettons_for_sale;
     int ref_cashback = muldiv(msg_value, cashback_factor, percent_devider);
     storage::ton_collected += msg_value - ref_cashback;
 
-    throw_unless(exc::sale_not_started, now() > storage::sale_start_time);
-    throw_unless(exc::sale_finished, now() < storage::sale_end_time);
     throw_unless(exc::less_than_min_purchase, msg_value >= min_purchase_ton);
     throw_unless(exc::more_than_max_purchase, msg_value <= max_purchase_ton);
     throw_unless(exc::not_enough_jettons, storage::jettons_sold <= jettons_for_sale);
@@ -172,7 +169,7 @@ global int jettons_for_sale;
                             .store_uint(storage::cycle_length, 32)
                             .store_uint(storage::cycles_number, 16);
     if (cashback_factor) {
-        sbt_message = sbt_message.store_dict(
+        sbt_message = sbt_message.store_maybe_ref(
             begin_cell().store_slice(ref_address).store_uint(cashback_factor, 32).end_cell()
         );
     }
@@ -257,7 +254,7 @@ global int jettons_for_sale;
     }
 
     send_msg(sender_address, 0, op::excesses, 0, null(), 128);
-    storage::sale_finished? = 1;
+    storage::sale_finished? = true;
     save_data();
     return ();
 }
@@ -307,7 +304,6 @@ global int jettons_for_sale;
 
     ifnot (storage::init?) {
         throw_unless(exc::incorrect_sender, equal_slices(sender_address, storage::admin_address));
-        storage::init? = 1;
 
         builder message = begin_cell()
                             .store_uint(0x18, 6)
@@ -325,30 +321,21 @@ global int jettons_for_sale;
         return ();
     }
 
-    int op = (in_msg_body.slice_bits() == 0) ? 0 : in_msg_body~load_uint(32);
-
-    ;; End sale (provide liquidity and send TON to founder & launchpad)
-    if ((now() > storage::sale_end_time) & (op == 0)) {
-        throw_unless(exc::out_of_gas, msg_value >= gas::end_sale);
-        throw_if(exc::sale_finished, storage::sale_finished?);
-        finish_sale(sender_address);
-
-        return ();
-    }
+    int op = in_msg_body.slice_empty?() ? 0 : in_msg_body~load_uint(32);
     
     if ((op == op::ownership_proof) | (op == 0)) { 
+        throw_unless(exc::sale_not_started, now() > storage::sale_start_time);
+        throw_unless(exc::sale_finished, now() < storage::sale_end_time);
+
         slice purchase_conditions_parsed = storage::purchase_conditions.begin_parse();
         
         if (op == op::ownership_proof) {  ;; message from WL sbt
             int wl_sbt_index = in_msg_body~load_uint(256);
             slice owner_address = in_msg_body~load_msg_addr();
 
-            in_msg_body = in_msg_body~load_ref();
+            in_msg_body = in_msg_body~load_ref().begin_parse();
             int wl_index = in_msg_body~load_uint(2);  ;; this sale supports up to 4 whitelist levels
-            repeat(wl_index) {
-                purchase_conditions_parsed~load_ref();
-            }
-            purchase_conditions_parsed = purchase_conditions_parsed~load_ref().begin_parse();
+            purchase_conditions_parsed = purchase_conditions_parsed.preload_ref_index(wl_index).begin_parse();
             
             cell wl_sbt_code = purchase_conditions_parsed~load_ref();
             slice wl_collection_address = purchase_conditions_parsed~load_msg_addr();
@@ -366,6 +353,16 @@ global int jettons_for_sale;
         (slice ref_address, int discount_factor, int cashback_factor) = get_referral_data(in_msg_body);
 
         sell_tokens(msg_value, sender_address, price_factor * (percent_devider - discount_factor), price_devider * percent_devider, min_purchase_ton, max_purchase_ton, ref_address, cashback_factor);
+        return ();
+    }
+
+    ;; End sale (provide liquidity and send TON to founder & launchpad)
+    if (op == op::end_sale) {
+        throw_unless(exc::out_of_gas, msg_value >= gas::end_sale);
+        throw_unless(exc::sale_not_finished, now() > storage::sale_end_time);
+        throw_if(exc::sale_finished, storage::sale_finished?);
+        finish_sale(sender_address);
+
         return ();
     }
     
@@ -416,8 +413,10 @@ global int jettons_for_sale;
     }
 
     ;; set jetton wallet address (used only once)
-    if (op == op::take_wallet_address) {  
+    if (op == op::take_wallet_address) {
+        throw_if(exc::already_inited, storage::init?);  
         throw_unless(exc::incorrect_sender, equal_slices(sender_address, storage::jetton_wallet_address));
+        storage::init? = true;
         storage::jetton_wallet_address = in_msg_body~load_msg_addr();
         save_data();
         return ();
@@ -437,7 +436,7 @@ global int jettons_for_sale;
             return ();
         } 
         
-        storage::jettons_added? = 1;
+        storage::jettons_added? = true;
         
         send_msg(storage::owner_address, 0, op::excesses, 0, null(), mode::carry_remaining_gas);
         save_data();
