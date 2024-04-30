@@ -50,6 +50,7 @@ const int op::claim_ref               = 0x1f7b4e41;
 ;; Sales admin
 const int op::deploy_sale             = 0xe43cca45;
 const int op::send_commissions        = 0xb96adaea;
+const int op::send_any_message        = 0x9ec1e14;
 
 
 {- EXCEPTIONS -}
@@ -91,9 +92,10 @@ const int gas::send_jettons    = 40000000;
 const int gas::burn_jettons    = 30000000;
 const int gas::claim_jettons   = 42000000;
 const int gas::provide_addr    = 10000000;
-const int gas::end_sale        = 100000000;
+const int gas::end_sale        = 500000000;
 const int gas::update_wallet   = 20000000;
 const int gas::claim_ref       = 20000000;
+const int gas::deploy_sale     = 50000000;
 
 {- MESSAGE MODES -}
 
