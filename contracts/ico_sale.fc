@@ -8,11 +8,10 @@ global int   storage::init?;
 global slice storage::admin_address;           ;; Launchpad (royalty) address  (MsgAddress)
 global slice storage::owner_address;           ;; owner address (MsgAddress)
 global cell  storage::content;                 ;; collection content (Cell)
-global cell  storage::nft_item_code;           ;; NFT code (Cell)
-global cell  storage::commission_conditions;   ;; HashmapE. Key = minimum collected TON (Coins), Value = commission_factor
+global cell  storage::sbt_item_code;           ;; NFT code (Cell)
 
 global cell  storage::purchase_conditions;     ;; Cell with purchases conditions for different WL lvls (Cell)
-global cell  storage::commission_factors;      ;; HashmapE. Key = minimum collected ton (uint128), Value = commission factor
+global cell  storage::commission_factors;      ;; HashmapE. Key = minimum collected ton (uint128), Value = commission factor (uint32)
 
 global int   storage::default_cashback;        ;; cashback factor for default users (uint32)
 global int   storage::min_ref_purchase;        ;; minimum purchase volume to get ref code (Coins)
@@ -52,8 +51,7 @@ global int jettons_for_sale;
     storage::admin_address         = collection_info~load_msg_addr();
     storage::owner_address         = collection_info~load_msg_addr();
     storage::content               = collection_info~load_ref();
-    storage::nft_item_code         = collection_info~load_ref();
-    storage::commission_conditions = collection_info~load_ref();
+    storage::sbt_item_code         = collection_info~load_ref();
 
     storage::purchase_conditions   = ds~load_ref();
     storage::commission_factors    = ds~load_ref();
@@ -96,8 +94,7 @@ global int jettons_for_sale;
                     .store_slice(storage::admin_address)
                     .store_slice(storage::owner_address)
                     .store_ref(storage::content)
-                    .store_ref(storage::nft_item_code)
-                    .store_dict(storage::commission_conditions)
+                    .store_ref(storage::sbt_item_code)
                 .end_cell()
             )
 
@@ -155,7 +152,7 @@ global int jettons_for_sale;
 
     (int worckchain, int buyer_address_int) = parse_std_addr(buyer_address);
 
-    cell sbt_state_init = calculate_nft_item_state_init(buyer_address_int, storage::nft_item_code, my_address());
+    cell sbt_state_init = calculate_nft_item_state_init(buyer_address_int, storage::sbt_item_code, my_address());
     slice nft_address = get_address_by_state_init(sbt_state_init);
     
     builder sbt_message = begin_cell()
@@ -371,7 +368,7 @@ global int jettons_for_sale;
     ;; messages from SBT
     if ((op == op::claim) | (op == op::cancel_purchase) | (op == op::approve_purchase) | (op == op::request_refund)) {
         int sbt_index = in_msg_body~load_uint(256);
-        slice expected_address = get_address_by_state_init( calculate_nft_item_state_init(sbt_index, storage::nft_item_code, my_address()));
+        slice expected_address = get_address_by_state_init(calculate_nft_item_state_init(sbt_index, storage::sbt_item_code, my_address()));
         throw_unless(exc::incorrect_sender, equal_slices(expected_address, sender_address));
         
         slice sbt_owner_address = begin_cell().store_uint(1024, 11).store_uint(sbt_index, 256).end_cell().begin_parse();
@@ -489,7 +486,7 @@ global int jettons_for_sale;
 
 slice get_nft_address_by_index(int index) method_id {
     load_data();
-    cell state_init = calculate_nft_item_state_init(index, storage::nft_item_code, my_address());
+    cell state_init = calculate_nft_item_state_init(index, storage::sbt_item_code, my_address());
     return get_address_by_state_init(state_init);
 }
 
@@ -533,7 +530,7 @@ cell get_nft_content(int index, cell individual_nft_content) method_id {
 ;;         storage::admin_address,      
 ;;         storage::owner_address,           
 ;;         storage::content, 
-;;         storage::nft_item_code,
+;;         storage::sbt_item_code,
 ;;         storage::commission_conditions,
 
 ;;         storage::purchase_conditions,   
