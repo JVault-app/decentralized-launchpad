@@ -52,6 +52,11 @@ const int op::deploy_sale             = 0xe43cca45;
 const int op::send_commissions        = 0xb96adaea;
 const int op::send_any_message        = 0x9ec1e14;
 
+;; LP Messages
+const int op::deposit_liquidity_native = 0xd55e4686;
+const int op::deposit_liquidity_jetton = 0x40e108d6;
+const int op::liquidity_fulfill = 0xb9b68ef4;
+const int op::liquidity_reject = 0x9364a426; 
 
 {- EXCEPTIONS -}
 
@@ -111,6 +116,7 @@ const int mode::selfdestruct_on_empty   = 32;
 
 {- OTHER -}
 
+const int ONE_TON = 1000000000;
 const int   percent_devider = 1000000000;
 const slice burn_address    = "EQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAM9c"a;
 const int   uint_256_max    = 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff;

@@ -34,6 +34,10 @@ global int   storage::first_unlock_size;       ;; percent of tokens unlocked at 
 global int   storage::cycle_length;            ;; time between unlocks in seconds (uint32)
 global int   storage::cycles_number;           ;; number of unlocks excluding initial (uint16)
 
+global slice storage::jetton_root_address;     ;; jetton root address (MsgAddress)
+global slice storage::native_vault;            ;; native vault address (MsgAddress)
+global slice storage::jetton_vault;            ;; jetton vault address (MsgAddress)
+
 global slice storage::jetton_wallet_address;   ;; jetton wallet address of this smc (MsgAddress)
 global int   storage::jettons_added?;          ;; Were jettons added to smart contract? (uint1)
 global int   storage::sale_finished?;          ;; Were collected TON sent to recipients? (uint1)
@@ -43,24 +47,10 @@ global int jettons_for_sale;
 
 
 () load_data() impure inline {
-    slice ds = get_data().begin_parse();
+    slice ds = get_data().begin_parse(); ;; data: 1 + 32 + 32 + 128 + 128 + 32 + 32 + 128 + 128 + 32 + 16 + 32 + 16 + 267 + 1 + 1 = 1006
+                                         ;; refs: collection_info + internal_ds + ref_conditions = 3
     
     storage::init?                 = ds~load_int(1);
-
-    slice collection_info = ds~load_ref().begin_parse();
-    storage::admin_address         = collection_info~load_msg_addr();
-    storage::owner_address         = collection_info~load_msg_addr();
-    storage::content               = collection_info~load_ref();
-    storage::sbt_item_code         = collection_info~load_ref();
-
-    storage::purchase_conditions   = ds~load_ref();
-    storage::commission_factors    = ds~load_ref();
-    
-    slice ref_conditions           = ds~load_ref().begin_parse();
-    storage::min_ref_purchase      = ds~load_coins();
-    storage::default_cashback      = ref_conditions~load_uint(32);
-    storage::refs_dict             = ref_conditions~load_dict();
-    storage::ref_wallet_code       = ref_conditions~load_ref(); 
 
     storage::sale_start_time       = ds~load_uint(32);
     storage::sale_end_time         = ds~load_uint(32);
@@ -81,6 +71,27 @@ global int jettons_for_sale;
     storage::jetton_wallet_address = ds~load_msg_addr();
     storage::jettons_added?        = ds~load_int(1);
     storage::sale_finished?        = ds~load_int(1);
+
+    slice collection_info = ds~load_ref().begin_parse(); ;; data: 267 + 267 = 534; refs: content + sbt_item_code = 2
+    storage::admin_address         = collection_info~load_msg_addr();
+    storage::owner_address         = collection_info~load_msg_addr();
+    storage::content               = collection_info~load_ref();
+    storage::sbt_item_code         = collection_info~load_ref();
+
+    slice internal_ds              = ds~load_ref().begin_parse(); ;; data: 267 + 267 + 267 = 801; refs: purchaise_conditions + commission_factors = 2
+
+    storage::jetton_root_address   = internal_ds~load_msg_addr();
+    storage::native_vault          = internal_ds~load_msg_addr();
+    storage::jetton_vault          = internal_ds~load_msg_addr();
+    storage::purchase_conditions   = internal_ds~load_ref();
+    storage::commission_factors    = internal_ds~load_ref();
+    
+    slice ref_conditions           = ds~load_ref().begin_parse(); ;; data: 128 + 32 + 1 = 161; refs: refs_dict + ref_wallet_code = 2
+    storage::min_ref_purchase      = ref_conditions~load_coins();
+    storage::default_cashback      = ref_conditions~load_uint(32);
+    storage::refs_dict             = ref_conditions~load_dict();
+    storage::ref_wallet_code       = ref_conditions~load_ref(); 
+
     jettons_for_sale = storage::jettons_added? ? muldiv(storage::allocated_jettons, (percent_devider - storage::liquidity_part_jetton), percent_devider) : 0;
 }
 
@@ -89,25 +100,6 @@ global int jettons_for_sale;
     set_data(
         begin_cell()
             .store_int(storage::init?, 1)
-            .store_ref(
-                begin_cell()
-                    .store_slice(storage::admin_address)
-                    .store_slice(storage::owner_address)
-                    .store_ref(storage::content)
-                    .store_ref(storage::sbt_item_code)
-                .end_cell()
-            )
-
-            .store_ref(storage::purchase_conditions)
-            .store_ref(storage::commission_factors)
-            .store_ref(
-                begin_cell()
-                    .store_coins(storage::min_ref_purchase)
-                    .store_uint(storage::default_cashback, 32)
-                    .store_dict(storage::refs_dict)
-                    .store_ref(storage::ref_wallet_code)
-                .end_cell()
-            )
 
             .store_uint(storage::sale_start_time, 32)
             .store_uint(storage::sale_end_time, 32)
@@ -129,13 +121,68 @@ global int jettons_for_sale;
             .store_int(storage::jettons_added?, 1)
             .store_int(storage::sale_finished?, 1)
 
+            .store_ref( ;; collection_info
+                begin_cell()
+                    .store_slice(storage::admin_address)
+                    .store_slice(storage::owner_address)
+                    .store_ref(storage::content)
+                    .store_ref(storage::sbt_item_code)
+                .end_cell()
+            ) ;; \collection_info
+            .store_ref( ;; internal_ds
+                begin_cell()
+                .store_slice(storage::jetton_root_address)
+                .store_slice(storage::native_vault)
+                .store_slice(storage::jetton_vault)
+                .store_ref(storage::purchase_conditions)
+                .store_ref(storage::commission_factors)
+                .end_cell()
+            ) ;; \internal_ds
+            .store_ref( ;; ref_conditions
+                begin_cell()
+                    .store_coins(storage::min_ref_purchase)
+                    .store_uint(storage::default_cashback, 32)
+                    .store_dict(storage::refs_dict)
+                    .store_ref(storage::ref_wallet_code)
+                .end_cell()
+            ) ;; \ref_conditions
         .end_cell()
     );
 }
 
-;; TODO
+builder store_pool_params_native_jetton(builder b, int jetton_root_workchain, int jetton_root_address_hash) inline {
+    return b.store_uint(0, 5).store_uint(1, 4).store_uint(jetton_root_workchain, 8).store_uint(jetton_root_address_hash, 256);
+}
+
 () provide_liquidity(int jetton_amount, int ton_amount) impure inline {
-    return ();
+    int query_id = cur_lt();
+    ton_amount -= ONE_TON;
+
+    (int jetton_root_workchain, int jetton_root_address_hash) = parse_std_addr(storage::jetton_root_address);
+    cell fulfill_payload = begin_cell().store_uint(op::liquidity_fulfill, 32).end_cell();
+    cell reject_payload = begin_cell().store_uint(op::liquidity_reject, 32).end_cell();
+
+    builder assets = begin_cell().store_coins(0).store_coins(ton_amount).store_coins(jetton_amount);
+
+    cell native_provide_lp_message = begin_cell()
+                                        .store_uint(op::deposit_liquidity_native, 32)
+                                        .store_uint(query_id, 64).store_coins(ton_amount)
+                                        .store_pool_params_native_jetton(jetton_root_workchain,jetton_root_address_hash)
+                                        .store_ref(assets.end_cell())
+                                        .store_maybe_ref(fulfill_payload)
+                                        .store_maybe_ref(reject_payload)
+                                    .end_cell();
+
+    cell jetton_provide_lp_message = begin_cell()
+                                        .store_uint(op::deposit_liquidity_jetton, 32)
+                                        .store_pool_params_native_jetton(jetton_root_workchain,jetton_root_address_hash)
+                                        .store_builder(assets)
+                                        .store_maybe_ref(fulfill_payload)
+                                        .store_maybe_ref(reject_payload)
+                                    .end_cell();
+
+    send_cell_msg(storage::native_vault, native_provide_lp_message, 400000000, 1);
+    send_jettons(query_id, jetton_amount, storage::jetton_vault, my_address(), storage::jetton_wallet_address, 500000000, 1, 400000000, jetton_provide_lp_message);
 }
 
 
