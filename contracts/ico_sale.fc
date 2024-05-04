@@ -470,6 +470,13 @@ builder store_pool_params_native_jetton(builder b, int jetton_root_workchain, in
     if (op == op::transfer_notification) { 
         int transferred_jettons = in_msg_body~load_coins();
         slice from_address = in_msg_body~load_msg_addr();
+        ifnot (in_msg_body.slice_refs_empty?()) {
+            slice jetton_payload = in_msg_body~load_ref().begin_parse();
+            if (jetton_payload~load_uint(32) == op::liquidity_fulfill) {
+                send_jettons(query_id, transferred_jettons, null_addr(), my_address(), sender_address, 0, mode::carry_remaining_gas, 0, null());
+                return ();
+            }
+        }
         
         if (storage::jettons_added? | 
             (transferred_jettons != storage::allocated_jettons) |
