@@ -98,3 +98,19 @@ slice get_address_by_state_init(cell state_init) inline {
             
     send_raw_message(msg.end_cell(), sending_mode);  
 }
+
+
+builder int_to_str(int number) {
+    builder string = begin_cell();
+    tuple chars = null();
+    do {
+        int r = number~divmod(10);
+        chars = cons(r + 48, chars);
+    } until (number == 0);
+    do {
+        int char = chars~list_next();
+        string~store_uint(char, 8);
+    } until (null?(chars));
+    
+    return string;
+}

@@ -4,7 +4,6 @@
 #include "imports/utils.fc";
 
 
-;; Default SBT
 global slice storage::owner_address;
 global slice storage::collection_address;
 global int   storage::init?;

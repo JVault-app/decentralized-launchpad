@@ -502,16 +502,7 @@ cell get_nft_content(int index, cell individual_nft_content) method_id {
     cs~load_ref();
     slice common_content = cs~load_ref().begin_parse();
 
-    builder string = begin_cell();
-    tuple chars = null();
-    do {
-        int r = index~divmod(10);
-        chars = cons(r + 48, chars);
-    } until (index == 0);
-    do {
-        int char = chars~list_next();
-        string~store_uint(char, 8);
-    } until (null?(chars));
+    builder string = int_to_str(index);
     
     return (begin_cell()
                 .store_uint(1, 8)  ;; offchain tag
