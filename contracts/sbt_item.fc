@@ -256,7 +256,7 @@ global int   storage::refund_requested;
 
 (int, int, slice, slice, cell) get_nft_data() method_id {
     load_data();
-    return (storage::init?, storage::index, storage::collection_address, storage::owner_address, storage::content);
+    return (storage::init?, storage::index, storage::collection_address, storage::owner_address, begin_cell().store_coins(storage::purchased_jettons).end_cell());
 }
 
 slice get_authority_address() method_id {

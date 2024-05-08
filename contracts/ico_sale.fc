@@ -554,14 +554,47 @@ cell get_nft_content(int index, cell individual_nft_content) method_id {
     load_data();
     slice cs = storage::content.begin_parse();
     cs~load_ref();
-    slice common_content = cs~load_ref().begin_parse();
+    cell common_content_dict = cs~load_dict();
+    (slice delimiter_sc, int f) = common_content_dict~udict_delete_get?(256, "delimiter"H);
+    int delimiter = 9;
+    if (f) {
+        delimiter = delimiter_sc~load_uint(8);
+    }
 
-    builder string = int_to_str(index);
-    
+    slice individual_nft_content_cs = individual_nft_content.begin_parse();
+    int number = individual_nft_content_cs~load_coins();
+    builder string = begin_cell().store_uint(0,2).store_slice("Current share: ");
+
+    int b = 1;
+    repeat (delimiter) {
+        b *= 10;
+    }
+    (int quot, int reminder) = number.divmod(b);
+    int res = 0;
+    do {
+        (quot, res) = quot.divmod(10);
+        string = string.store_uint(res + 48, 256);
+    } until (quot == 0);
+
+    string = string.store_slice(".");
+
+    b = 0;
+    do {
+        (reminder, res) = reminder.divmod(10);
+        string = string.store_uint(res + 48, 256);
+        b += 1;
+    } until ((reminder == 0) | (b == 4));
+
+    (slice ticker, f) = common_content_dict~udict_delete_get?(256, "ticker"H);
+    ifnot (f) {
+        ticker = " tokens";
+    }
+    string = string.store_ref(begin_cell().store_slice(ticker).end_cell());
+    common_content_dict~udict_set_ref(256,"description"H, string.end_cell());
+        
     return (begin_cell()
-                .store_uint(1, 8)  ;; offchain tag
-                .store_slice(common_content)
-                .store_ref(string.end_cell())
+                .store_uint(0, 8)  ;; onchain tag
+                .store_dict(common_content_dict)
             .end_cell());
 }
 
