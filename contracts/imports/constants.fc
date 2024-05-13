@@ -91,16 +91,24 @@ const int exc::unsupported_op = 0xffff;
 {- GAS (TODO) -}
 
 const int min_tons_for_storage = 25000000;   
-const int gas::purchase        = 20000000;
-const int gas::deploy_sbt      = 50000000;
 const int gas::send_jettons    = 40000000;
 const int gas::burn_jettons    = 30000000;
-const int gas::claim_jettons   = 42000000;
 const int gas::provide_addr    = 10000000;
+
+const int gas::deploy_sale     = 50000000;
+const int gas::deploy_sbt      = 50000000;
+const int gas::deploy_ref      = 50000000;
+
+const int gas::purchase        = 20000000;
 const int gas::end_sale        = 500000000;
+const int gas::provide_ton     = 400000000;
+const int gas::provide_jetton  = 400000000;
+
+const int gas::claim_jettons   = 42000000;
+
 const int gas::update_wallet   = 20000000;
 const int gas::claim_ref       = 20000000;
-const int gas::deploy_sale     = 50000000;
+
 
 {- MESSAGE MODES -}
 

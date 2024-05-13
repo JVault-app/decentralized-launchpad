@@ -68,10 +68,14 @@ global int   storage::collected_ton;
         throw_unless(exc::incorrect_sender, equal_slices(storage::owner_address, sender_address));
         throw_unless(exc::sale_not_finished, now() >= storage::sale_end_time);
         throw_unless(exc::nothing_to_claim, storage::collected_ton > min_tons_for_storage);
-
-        send_msg(storage::collection_address, gas::claim_ref, op::claim_ref, query_id,
-                 begin_cell().store_slice(storage::owner_address).store_coins(storage::collected_ton), mode::simple);  
-        send_msg(storage::owner_address, 0, op::excesses, query_id, null(), mode::carry_remaining_balance);
+        
+        builder claim_msg_body = begin_cell()
+                                    .store_uint(op::claim_ref, 32)
+                                    .store_uint(query_id, 64)
+                                    .store_slice(storage::owner_address)
+                                    .store_coins(storage::collected_ton);
+        send_builder_message(storage::collection_address, gas::claim_ref, claim_msg_body, mode::simple);  
+        send_builder_message(storage::owner_address, 0, begin_cell().store_uint(op::excesses, 32).store_uint(query_id, 64), mode::carry_remaining_balance);
         storage::collected_ton = 0;
 
         save_data();

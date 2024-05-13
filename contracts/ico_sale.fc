@@ -79,7 +79,6 @@ global int jettons_for_sale;
     storage::sbt_item_code         = collection_info~load_ref();
 
     slice internal_ds              = ds~load_ref().begin_parse(); ;; data: 267 + 267 + 267 = 801; refs: purchaise_conditions + commission_factors = 2
-
     storage::jetton_root_address   = internal_ds~load_msg_addr();
     storage::native_vault          = internal_ds~load_msg_addr();
     storage::jetton_vault          = internal_ds~load_msg_addr();
@@ -167,7 +166,7 @@ builder store_pool_params_native_jetton(builder b, int jetton_root_workchain, in
     cell native_provide_lp_message = begin_cell()
                                         .store_uint(op::deposit_liquidity_native, 32)
                                         .store_uint(query_id, 64).store_coins(ton_amount)
-                                        .store_pool_params_native_jetton(jetton_root_workchain,jetton_root_address_hash)
+                                        .store_pool_params_native_jetton(jetton_root_workchain, jetton_root_address_hash)
                                         .store_ref(assets.end_cell())
                                         .store_maybe_ref(fulfill_payload)
                                         .store_maybe_ref(reject_payload)
@@ -175,14 +174,15 @@ builder store_pool_params_native_jetton(builder b, int jetton_root_workchain, in
 
     cell jetton_provide_lp_message = begin_cell()
                                         .store_uint(op::deposit_liquidity_jetton, 32)
-                                        .store_pool_params_native_jetton(jetton_root_workchain,jetton_root_address_hash)
+                                        .store_pool_params_native_jetton(jetton_root_workchain, jetton_root_address_hash)
                                         .store_builder(assets)
                                         .store_maybe_ref(fulfill_payload)
                                         .store_maybe_ref(reject_payload)
                                     .end_cell();
 
-    send_cell_msg(storage::native_vault, native_provide_lp_message, 400000000, 1);
-    send_jettons(query_id, jetton_amount, storage::jetton_vault, my_address(), storage::jetton_wallet_address, 500000000, 1, 400000000, jetton_provide_lp_message);
+    send_cell_message(storage::native_vault, gas::provide_ton, native_provide_lp_message, mode::simple);
+    send_jettons(query_id, jetton_amount, storage::jetton_vault, my_address(), storage::jetton_wallet_address, gas::provide_jetton + gas::send_jettons, 
+                 mode::simple, gas::provide_jetton, jetton_provide_lp_message);
 }
 
 
@@ -200,7 +200,7 @@ builder store_pool_params_native_jetton(builder b, int jetton_root_workchain, in
     (int worckchain, int buyer_address_int) = parse_std_addr(buyer_address);
 
     cell sbt_state_init = calculate_nft_item_state_init(buyer_address_int, storage::sbt_item_code, my_address());
-    slice nft_address = get_address_by_state_init(sbt_state_init);
+    slice sbt_address = get_address_by_state_init(sbt_state_init);
     
     builder sbt_message = begin_cell()
                             .store_uint(op::update_sbt_data, 32)
@@ -220,14 +220,7 @@ builder store_pool_params_native_jetton(builder b, int jetton_root_workchain, in
     else {
         sbt_message = sbt_message.store_uint(0, 1);
     }
-    builder deploy_sbt_msg = begin_cell()
-                                .store_uint(0x18, 6)
-                                .store_slice(nft_address)
-                                .store_coins(gas::deploy_sbt)
-                                .store_uint(4 + 2 + 1, 1 + 4 + 4 + 64 + 32 + 1 + 1 + 1)
-                                .store_ref(sbt_state_init)
-                                .store_ref(sbt_message.end_cell());
-    send_raw_message(deploy_sbt_msg.end_cell(), mode::simple);  ;; deploy new SBT
+    send_deploy_message(sbt_address, gas::deploy_sbt, sbt_state_init, sbt_message.end_cell(), mode::simple); 
 
     save_data();
     return ();
@@ -235,7 +228,7 @@ builder store_pool_params_native_jetton(builder b, int jetton_root_workchain, in
 
 
 () cancel_purchase(slice buyer_address, int ton_to_return, int purchased_jettons) impure inline {
-    send_msg(buyer_address, ton_to_return, 0, 0, begin_cell().store_slice("Unsuccessful purchase"), mode::simple);
+    send_message_with_comment(buyer_address, ton_to_return, "Unsuccessful purchase", mode::simple);
 
     storage::jettons_sold -= purchased_jettons;
     storage::ton_collected -= ton_to_return;
@@ -250,21 +243,19 @@ builder store_pool_params_native_jetton(builder b, int jetton_root_workchain, in
     ifnot(slice_empty?(ref_data)) {
         (slice ref_address, int cashback_factor) = (ref_data~load_msg_addr(), ref_data~load_uint(32));
         int cashback = muldiv(received_ton, cashback_factor, percent_devider);
-        send_msg(ref_address, gas::update_wallet, op::update_ref_wallet, 0, begin_cell().store_coins(cashback), mode::simple);
+        builder msg_body = begin_cell()
+                            .store_uint(op::update_ref_wallet, 32)
+                            .store_uint(cur_lt(), 64)
+                            .store_coins(cashback);
+        send_builder_message(ref_address, gas::update_wallet, msg_body, mode::simple);
     }
     
     ;; deploy buyer's ref_wallet
     if (received_ton > storage::min_ref_purchase) {
         cell ref_wallet_state_init = calculate_ref_wallet_state_init(buyer_address, storage::ref_wallet_code, storage::sale_end_time);
-        builder deploy_ref_wallet_msg = begin_cell()
-                                    .store_uint(0x18, 6)
-                                    .store_slice(get_address_by_state_init(ref_wallet_state_init))
-                                    .store_coins(gas::deploy_sbt)
-                                    .store_uint(4 + 2, 1 + 4 + 4 + 64 + 32 + 1 + 1 + 1)
-                                    .store_ref(ref_wallet_state_init);
-                                    
-        send_raw_message(deploy_ref_wallet_msg.end_cell(), mode::simple);
+        send_deploy_message(get_address_by_state_init(ref_wallet_state_init), gas::deploy_sbt, ref_wallet_state_init, null(), mode::simple);
     }
+
     return ();
 }
 
@@ -272,10 +263,12 @@ builder store_pool_params_native_jetton(builder b, int jetton_root_workchain, in
 () finish_sale(slice sender_address) {
     raw_reserve(0, 4);
 
+    int query_id = cur_lt();
+
     ;; Sale failed
     if (storage::ton_collected < storage::min_ton_collected) { 
-        send_jettons(0, storage::allocated_jettons, storage::owner_address, sender_address, storage::jetton_wallet_address,
-                        gas::send_jettons, mode::simple, 0, begin_cell().store_uint(0, 32).store_slice("Unfortunately, your tokensale was unsuccessful").end_cell());   
+        send_jettons(query_id, storage::allocated_jettons, storage::owner_address, sender_address, storage::jetton_wallet_address,
+                     gas::send_jettons, mode::simple, 0, begin_cell().store_uint(0, 32).store_slice("Unfortunately, your tokensale was unsuccessful").end_cell());   
     }
     ;; Sale succeed
     else {
@@ -291,13 +284,13 @@ builder store_pool_params_native_jetton(builder b, int jetton_root_workchain, in
 
         (_, slice cfs, int success) = storage::commission_factors.udict_get_preveq?(128, storage::ton_collected);
         int ton_for_launchpad = muldiv(storage::ton_collected, cfs~load_uint(32), percent_devider);
-        send_msg(storage::admin_address, ton_for_launchpad, op::send_commissions, 0, null(), mode::simple);
+        send_builder_message(storage::admin_address, ton_for_launchpad, begin_cell().store_uint(op::send_commissions, 32).store_uint(query_id, 64), mode::simple);
 
         int ton_for_founder = storage::ton_collected - ton_for_launchpad - ton_for_liquidity;
-        send_msg(storage::owner_address, ton_for_founder, 0, 0, begin_cell().store_slice("JVault launchpad founder's payout"), mode::simple);
+        send_message_with_comment(storage::owner_address, ton_for_founder, "JVault Launchpad payout for ICO creator", mode::simple);
     }
 
-    send_msg(sender_address, 0, op::excesses, 0, null(), 128);
+    send_builder_message(sender_address, 0, begin_cell().store_uint(op::excesses, 32).store_uint(query_id, 64), 128);
     storage::sale_finished? = true;
     save_data();
     return ();
@@ -346,26 +339,22 @@ builder store_pool_params_native_jetton(builder b, int jetton_root_workchain, in
 
     load_data();
 
+    int op = in_msg_body.slice_empty?() ? 0 : in_msg_body~load_uint(32);
+    int query_id = in_msg_body.slice_empty?() ? cur_lt() : in_msg_body~load_uint(64);
+
     ifnot (storage::init?) {
         throw_unless(exc::incorrect_sender, equal_slices(sender_address, storage::admin_address));
 
-        builder message = begin_cell()
-                            .store_uint(0x18, 6)
-                            .store_slice(storage::jetton_wallet_address)
-                            .store_coins(gas::provide_addr)
-                            .store_uint(0, 1 + 4 + 4 + 64 + 32 + 1 + 1)
+        builder msg_body = begin_cell()
                             .store_uint(op::provide_wallet_address, 32)
-                            .store_uint(now(), 64)
+                            .store_uint(query_id, 64)
                             .store_slice(my_address())
                             .store_uint(0, 1);
-                        
-        send_raw_message(message.end_cell(), mode::pay_fees_separately);
+        send_builder_message(storage::jetton_wallet_address, gas::provide_addr, msg_body, mode::simple);
 
         save_data();
         return ();
     }
-
-    int op = in_msg_body.slice_empty?() ? 0 : in_msg_body~load_uint(32);
     
     if ((op == op::ownership_proof) | (op == 0)) { 
         throw_unless(exc::sale_not_started, now() > storage::sale_start_time);
@@ -409,8 +398,6 @@ builder store_pool_params_native_jetton(builder b, int jetton_root_workchain, in
 
         return ();
     }
-    
-    int query_id = in_msg_body~load_uint(64);
 
     ;; messages from SBT
     if ((op == op::claim) | (op == op::cancel_purchase) | (op == op::approve_purchase) | (op == op::request_refund)) {
@@ -429,7 +416,7 @@ builder store_pool_params_native_jetton(builder b, int jetton_root_workchain, in
         if (op == op::request_refund) {
             throw_unless(exc::sale_not_finished, now() > storage::sale_end_time);
             throw_unless(exc::sale_succeed, storage::ton_collected >= storage::min_ton_collected);
-            send_msg(sbt_owner_address, coins_amount, 0, 0, begin_cell().store_slice("Tokensale was unsuccessful"), mode::simple);
+            send_message_with_comment(sbt_owner_address, coins_amount, "Tokensale was unsuccessful", mode::simple);
         }
         if (op == op::cancel_purchase) {
             int ton_to_return = in_msg_body~load_coins();
@@ -452,7 +439,7 @@ builder store_pool_params_native_jetton(builder b, int jetton_root_workchain, in
         throw_unless(exc::incorrect_sender, equal_slices(expected_address, sender_address));
 
         int ref_reward = in_msg_body~load_coins();
-        send_msg(ref_owner_address, ref_reward, 0, 0, begin_cell().store_slice("Cashback from referrals on JVault launchpad"), mode::simple);
+        send_message_with_comment(ref_owner_address, ref_reward, "Cashback from referrals on JVault launchpad", mode::simple);
         return ();
     }
 
@@ -462,6 +449,7 @@ builder store_pool_params_native_jetton(builder b, int jetton_root_workchain, in
         throw_unless(exc::incorrect_sender, equal_slices(sender_address, storage::jetton_wallet_address));
         storage::init? = true;
         storage::jetton_wallet_address = in_msg_body~load_msg_addr();
+
         save_data();
         return ();
     }
@@ -489,7 +477,7 @@ builder store_pool_params_native_jetton(builder b, int jetton_root_workchain, in
         
         storage::jettons_added? = true;
         
-        send_msg(storage::owner_address, 0, op::excesses, 0, null(), mode::carry_remaining_gas);
+        send_builder_message(storage::owner_address, query_id, begin_cell().store_uint(op::excesses, 32).store_uint(query_id, 64), mode::carry_remaining_gas);
         save_data();
         return ();
     }
@@ -500,7 +488,7 @@ builder store_pool_params_native_jetton(builder b, int jetton_root_workchain, in
     if (op == op::change_owner) {
         storage::owner_address = in_msg_body~load_msg_addr();
 
-        send_msg(storage::owner_address, 0, op::excesses, 0, null(), mode::carry_remaining_gas);
+        send_builder_message(storage::owner_address, 0, begin_cell().store_uint(op::excesses, 32).store_uint(query_id, 64), mode::carry_remaining_gas);
         save_data();
         return ();
     }
@@ -508,7 +496,7 @@ builder store_pool_params_native_jetton(builder b, int jetton_root_workchain, in
     if (op == op::change_purchase_info) {
         storage::purchase_conditions = in_msg_body~load_ref();
 
-        send_msg(storage::owner_address, 0, op::excesses, 0, null(), mode::carry_remaining_gas);
+        send_builder_message(storage::owner_address, 0, begin_cell().store_uint(op::excesses, 32).store_uint(query_id, 64), mode::carry_remaining_gas);
         save_data();
         return ();
     }
@@ -521,7 +509,7 @@ builder store_pool_params_native_jetton(builder b, int jetton_root_workchain, in
             (ref_address, ref_conditions, success) = new_addresses.udict_get_next?(256, ref_address);
         }
 
-        send_msg(storage::owner_address, 0, op::excesses, 0, null(), mode::carry_remaining_gas);
+        send_builder_message(storage::owner_address, 0, begin_cell().store_uint(op::excesses, 32).store_uint(query_id, 64), mode::carry_remaining_gas);
         save_data();
         return (); 
     }

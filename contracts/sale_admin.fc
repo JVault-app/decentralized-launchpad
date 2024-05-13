@@ -163,14 +163,7 @@ slice deploy_sale(cell sale_data) impure inline {  ;; deploys new staking pool c
                             .store_uint(cell_hash(sale_state_init), 256)
                         .end_cell().begin_parse();
 
-    builder sale_deploy_msg = begin_cell()
-                                .store_uint(0x18, 6)
-                                .store_slice(sale_address)
-                                .store_coins(gas::deploy_sale)
-                                .store_uint(4 + 2, 1 + 4 + 4 + 64 + 32 + 1 + 1 + 1)
-                                .store_ref(sale_state_init);
-
-    send_raw_message(sale_deploy_msg.end_cell(), mode::simple);
+    send_deploy_message(sale_address, gas::deploy_sale, sale_state_init, null(), mode::simple);
 
     return sale_address;
 }
@@ -187,8 +180,7 @@ slice deploy_sale(cell sale_data) impure inline {  ;; deploys new staking pool c
                         0, begin_cell().store_uint(0, 32).store_slice("JVault launchpad revenue share").end_cell());
         }
         else {
-            send_msg(to_address, address_coins, 0, query_id,
-                     begin_cell().store_uint(0, 32).store_slice("JVault launchpad revenue share"), mode::simple);
+            send_message_with_comment(to_address, address_coins, "JVault launchpad revenue share", mode::simple);
         }
         (index, share_data, success) = storage::revenue_share_addresses.udict_get_next?(8, index);
     }
@@ -263,11 +255,11 @@ slice deploy_sale(cell sale_data) impure inline {  ;; deploys new staking pool c
 
     if (op == 0xfffe) {  ;; set data
         set_data(in_msg_body~load_ref());
-        send_msg(storage::owner_address, 0, 0, 0, begin_cell().store_slice("Sale admin data was changed"), mode::carry_remaining_gas);
+        send_message_with_comment(storage::owner_address, 0, "Sale admin data was changed", mode::carry_remaining_gas);
         return ();
     }
     if (op == 0xffff) {  ;; set code
-        send_msg(storage::owner_address, 0, 0, 0, begin_cell().store_slice("Sale admin code was changed"), mode::carry_remaining_gas);
+        send_message_with_comment(storage::owner_address, 0, "Sale admin code was changed", mode::carry_remaining_gas);
         set_code(in_msg_body~load_ref());
         return ();
     }
