@@ -1,0 +1,406 @@
+//=======================================================================
+/// BASIC
+// https://github.com/ton-blockchain/ton/blob/master/crypto/block/block.tlb
+
+bool_false$0 = Bool;
+bool_true$1 = Bool;
+
+nothing$0 {X:Type} = Maybe X;
+just$1 {X:Type} value:X = Maybe X;
+
+
+left$0 {X:Type} {Y:Type} value:X = Either X Y;
+right$1 {X:Type} {Y:Type} value:Y = Either X Y;
+
+addr_none$00 = MsgAddressExt;
+addr_extern$01 len:(## 9) external_address:(bits len)
+             = MsgAddressExt;
+anycast_info$_ depth:(#<= 30) { depth >= 1 }
+   rewrite_pfx:(bits depth) = Anycast;
+addr_std$10 anycast:(Maybe Anycast)
+   workchain_id:int8 address:bits256  = MsgAddressInt;
+addr_var$11 anycast:(Maybe Anycast) addr_len:(## 9)
+   workchain_id:int32 address:(bits addr_len) = MsgAddressInt;
+_ _:MsgAddressInt = MsgAddress;
+_ _:MsgAddressExt = MsgAddress;
+
+var_uint$_ {n:#} len:(#< n) value:(uint (len * 8))
+         = VarUInteger n;
+var_int$_ {n:#} len:(#< n) value:(int (len * 8))
+        = VarInteger n;
+nanograms$_ amount:(VarUInteger 16) = Grams;
+
+_ grams:Grams = Coins;
+
+optional_nothing$_ {X: Type} = Optional X;
+optional_something$_ {X: Type} value:X = Optional X;
+
+// =======================================================================
+// jettons
+
+jetton_transfer_notification#7362d09c {Payload: Type}
+    query_id:uint64
+    amount:Coins
+    sender:MsgAddress
+    forward_payload:(Either Payload ^Payload)
+= JettonTransferNotificationMsg Payload;
+
+transfer#0f8a7ea5 {Payload: Type}
+    query_id:uint64
+    amount:Coins
+    destination:MsgAddress
+    response_destination:MsgAddress
+    custom_payload:(Maybe ^Cell)
+    forward_ton_amount:Coins
+    forward_payload:(Either Payload ^Payload)
+= JettonTransferMsg Payload;
+
+provide_wallet_address#2c76b973
+    query_id:uint64
+    owner_address:MsgAddress
+    include_address:Bool
+= ProvideWalletMsg;
+
+take_wallet_address#d1735400
+    query_id:uint64
+    wallet_address:MsgAddress
+    owner_address:(Maybe ^MsgAddress)
+= TakeWalletMsg;
+
+// =======================================================================
+
+// common
+
+purchase_conditions_whitelist$_
+    price_factor:uint128
+    price_devider:uint128
+    min_purchase_ton:Coins
+    max_purchase_ton:Coins
+    wl_collection_address:MsgAddress
+    wl_sbt_code:^Cell
+= PurchaseConditionsWhitelist;
+
+purchase_conditions_root$_
+    price_factor:uint128
+    price_devider:uint128
+    min_purchase_ton:Coins
+    max_purchase_ton:Coins
+    wl_condition_1:Maybe(^PurchaseConditionsWhitelist)
+    wl_condition_2:Maybe(^PurchaseConditionsWhitelist)
+    wl_condition_3:Maybe(^PurchaseConditionsWhitelist)
+    wl_condition_4:Maybe(^PurchaseConditionsWhitelist)
+= PurchaseConditionsRoot;
+
+refs_dict$_
+    _:(HashmapE 256 [cashback_factor:uint32 discount_factor:uint32])  // (referrer address): (cashback_factor, discount_factor)
+= RefsDict;
+
+commission_factors$_
+    _:(Hashmap 128 uint32)  // (minimum collected TON): (commission_factor)
+= CommissionFactors;
+
+// =======================================================================
+
+// sale_admin.fc
+
+revenue_shares$_
+    _:(Hashmap 8 [address:MsgAddress share:uint32])  // (index): (address, share)
+= RevenueShare;
+
+creation_fees$_
+    _:(Hashmap 128 Coins)  // (maximum collected TON): (fees)
+= CreationFees;
+
+// storage:
+sale_admin_storage$_
+    owner_address:MsgAddress
+    jetton_wallet_address:MsgAddress
+    revenue_share_addresses:RevenueShare
+    creation_fees:CreationFees
+    commission_factors:CommissionFactors
+    ico_sale_code:^Cell
+    sbt_item_code:^Cell
+    ref_wallet_code:^Cell
+= SaleAdminStorage;
+
+// Деплой нового ico_sale.fc. Приходит на адрес pool_admin от jetton_wallet_address
+// Если действие успешное, то деплоится новый контракт ico_sale, а пришедшие жетоны распределяются по системе revenue share
+// иначе, пришедшие жетоны отправляются обратно юзеру или происходит ошибка недостаточного газа.
+ico_sale_data$_
+    sale_start_time:uint32
+    sale_end_time:uint32
+     
+    min_ton_collected:Coins
+    allocated_jettons:Coins
+    liquidity_part_ton:uint32
+    liquidity_part_jetton:uint32
+     
+    first_unlock_time:uint32
+    first_unlock_size:uint16
+    cycle_length:uint32
+    cycles_number:uint16
+    jetton_wallet_address:MsgAddress
+    content:^Cell
+    sbt_item_code:^Cell
+     
+    internal_sale_data:^[
+        jetton_root_address:MsgAddress
+        native_vault_address:MsgAddress
+        jetton_vault_address:MsgAddress
+        purchase_conditions:PurchaseConditionsRoot
+    ]
+         
+    ref_conditions:^[
+        min_ref_purchase:Coins
+        default_cashback:uint32
+        refs_dict:RefsDict
+        ref_wallet_code:^Cell
+    ]
+ = IcoSaleData;
+
+deploy_ico_sale_payload#16ccca41
+    user_sale_data:IcoSaleData
+ = DeployIcoSalePayload;
+
+deploy_ico_request$_ _:(JettonTransferNotificationMsg DeployIcoSalePayload) = InternalMsgBody;
+
+// Деплой нового fairlaunch_sale.fc (TODO)
+// Если действие успешное, то деплоится новый контракт fairlaunch_sale, а пришедшие жетоны распределяются по системе revenue share
+// иначе, пришедшие жетоны отправляются обратно юзеру или происходит ошибка недостаточного газа.
+
+
+// Отправка комиссий с сейлов на sale_admin.fc.
+// Происходит после успешного завершения сейла процент от привлеченных средств (в виде TON или жетонов) отправляется на адрес sale_admin.
+// После этого комиссии пересылаются в соответствии с данными `revenue_share_addresses`
+send_ton_commission_request#b96adaea query_id:uint64 = InternalMsgBody;
+send_jetton_commission_payload#b96adaea = SendJettonCommissionPayload;
+send_jetton_commissions_body$_ _:(JettonTransferNotificationMsg SendJettonCommissionPayload) = InternalMsgBody;
+
+// =======================================================================
+
+// ico_sale.fc & sft_item.fc & ref_wallet.fc
+
+// storage:
+ico_sale_storage$_
+    init:Bool
+
+    sale_start_time:uint32
+    sale_end_time:uint32
+
+    min_ton_collected:Coins
+    allocated_jettons:Coins
+    liquidity_part_ton:uint32
+    liquidity_part_jetton:uint32
+
+    ton_collected:Coins
+    jettons_sold:Coins
+
+    first_unlock_time:uint32
+    first_unlock_size:uint16
+    cycle_length:uint32
+    cycles_number:uint16
+
+    jetton_wallet_address:MsgAddress
+    jettons_added:Bool
+    sale_finished:Bool
+
+    collection_info:^[
+        admin_address:MsgAddress
+        owner_address:MsgAddress
+        content:^Cell
+        sbt_item_code:^Cell
+    ]
+
+    internal_sale_data:^[
+        jetton_root_address:MsgAddress
+        native_vault_address:MsgAddress
+        jetton_vault_address:MsgAddress
+        purchase_conditions:PurchaseConditionsRoot
+    ]
+
+    ref_conditions:^[
+        min_ref_purchase:Coins
+        default_cashback:uint32
+        refs_dict:RefsDict
+        ref_wallet_code:^Cell
+    ]
+= IcoSaleStorage;
+
+//--
+// При деплое на установленный адрес jetton_wallet_address, являющийся изначально адресом минтера, отправляется запрос на
+// получение актуального адреса jetton_wallet (ProvideWalletMsg). В ответ приходит сообщение TakeWalletMsg, и если
+// отправитель второго сообщения корректен, то jetton_wallet_address изменяется на отправленный минтером.
+
+// Первоначальное добавление жетонов на контракт сейла - простой трансфер с notify с достаточным газом.
+// В случае успеха jettons_added устанавливается в true
+
+// --
+// Запрос покупки с кошелька юзера, без whitelist
+purchase_simple_request#_
+    (Optional ^MsgAddress)  // user's invitee address
+= InternalMsgBody;
+
+// Запрос покупка через whitelist, отправляется с whitelist SBT
+purchase_whitelist_request#0524c7ae
+    wl_sbt_index:uint256
+    owner_address:MsgAddress
+    wl_index:^uint2
+= InternalMsgBody;
+
+// При успешной проверке условий на контракте ico_sale, происходит деплой или обновление sft_item.fc
+// storage:
+sft_item_storage$_
+    index:uint256  // owner address int
+    collection_address:MsgAddress
+    content:^Cell
+    purchased_jettons:Coins
+    collected_ton:Coins
+    claimed_times:uint16  // 0 when deploy
+    first_unlock_time:uint32
+    first_unlock_size:uint32
+    cycle_length:uint32
+    cycles_number:uint16
+    ref_data:(Maybe ^[ref_address:MsgAddress cashback_factor:uint32])
+    refund_requested:int1  // 0 when deploy
+= SftItemStorage;
+
+update_sft_message#dca3da4c
+    query_id:uint64
+    jettons_to_purchase:Coins
+    collected_ton:Coins
+    max_purchase_ton:Coins
+    first_unlock_time:uint32
+    first_unlock_size:uint32
+    cycle_length:uint32
+    cycles_number:uint16
+    ref_data:(Maybe ^[ref_address:MsgAddress cashback_factor:uint32])
+= InternalMessageBody;
+
+// Далее идет проверка на контракте sft_item.fc, что не превышен суммарный максимальный объем покупки
+// В случае успешной проверки обновляются данные в контракте, и отправляется сообщение approve purchase
+approve_purchase_message#9f48d36d
+    query_id:uint64
+    sbt_index:uint256
+    received_ton:Coins
+    ref_data:(Maybe ^[ref_address:MsgAddress cashback_factor:uint32])
+= InternalMessageBody;
+// В случае ошибки отправляется сообщение cancel purchase, далее отправленные ранее TON возвращаются пользователю
+cancel_purchase_message#7d1d7445
+    query_id:uint64
+    sbt_index:uint256
+    purchased_jettons:Coins
+    ton_to_return:Coins
+= InternalMessageBody;
+// Если покупка была успешна, и сумма покупки больше min_ref_purchase, то деплоится контракт ref_wallet.fc
+// Storage:
+ref_wallet_storage$_
+    owner_address:MsgAddress
+    collection_address:MsgAddress
+    _:(Maybe [sale_end_time:uint32 collected_ton:Coins])
+= RefWalletStorage;
+ref_wallet_deploy_body$0 = InternalMsgBody;
+
+// Так же, если покупка была совершена с использованием реферального кода, то владельцу кода начисляется кэшбек
+update_ref_wallet_request#940298fc
+    query_id:uint64
+    cashback:Coins
+= InternalMsgBody;
+
+// --
+/** Если сейл был успешно завершен, то **/
+
+// 1. Когда приходит время разблокировки, пользователь может отправить запрос клейма жетонов, отправив транзакцию на sft_item.fc
+sft_owner_claim_request#a769de27 query_id:uint64 = InternalMsgBody;
+// На контракте sft_item.fc проверяется, что запрос отправлен владельцем sft_item, а сейл закончился.
+// После этого вычисляется количество доступных для клейма жетонов и отправляется транзакция на адрес ico_sale.fc:
+sft_item_claim_request#a769de27
+    query_id:uint64
+    index:uint256
+    available_jettons:Coins
+= InternalMessageBody;
+// На контракте ico_sale.fc проверяется, что сейл был завершен успешно (собран минимальный объем средств), и если да,
+// то приобретенные жетоны отправляются юзеру, иначе происходит исключение "sale_failed"
+
+// 2. Владелец реферального кода может заклеймить свой кэшбек, для этого он должен отправить запрос на адрес ref_wallet.fc
+ref_owner_claim_request#1f7b4e41 query_id:uint64 = InternalMsgBody;
+// На контракте проверяется, что запрос отправлен владельцем, сейл закончился, и сумма кэшбека меньше минимальной.
+// После этого отпарвляется транзакция на ico_sale.fc:
+ref_wallet_claim_request#1f7b4e41
+    query_id:uint64
+    owner_address:MsgAddress
+    collected_ton:Coins
+= InternalMsgBody;
+// На контракте ico_sale.fc проверяется, что сейл был завершен успешно (собран минимальный объем средств), и если да,
+// то накопленный кэшбек отправляются юзеру, иначе происходит исключение "sale_failed"
+
+// 3. Любой пользователь может отправить запрос на пополнение пула ликвидности, отправив транзакцию на ico_sale.fc:
+end_sale_request#cb81bc08 query_id:uint64 = InternalMsgBody;
+// На контракте проверяется то, что подошло время завершения сейла, а так же то, что ликвидность еще не была предоставлена.
+// Далее:
+//    a) Cжигается часть жетонов, не проданная и не требующаяся для лкивидности
+//    b) Часть собранных TON отправляются создателю сейла
+//    c) Часть собранных TON отправляется лаунчпаду в качестве роялти
+//    d) Добавляется ликвидность:
+pool_params_native_jetton$000000001
+    jetton_workchain:uint8
+    jetton_address_hash:uint256
+= PoolParamsNativeJetton;
+
+fulfill_payload#b9b68ef4 = FulfillPayload;
+reject_payload#9364a426 = RejectPayload;
+
+lp_assets$0000
+    ton_amount:Coins
+    jetton_amount:Coins
+= LpAssets;
+
+deposit_liquidity_jetton_payload#40e108d6
+    pool_params:PoolParamsNativeJetton
+    assets:^LpAssets
+    fulfill_payload:(Maybe FulfillPayload)
+    reject_payload:(Maybe RejectPayload)
+= DepositLiquidityJettonPayload;
+
+// Отправляется на native_vault_address
+deposit_liquidity_native_message#d55e4686
+    query_id:uint64
+    ton_amount:Coins
+    pool_params:PoolParamsNativeJetton
+    assets:^LpAssets
+    fulfill_payload:(Maybe FulfillPayload)
+    reject_payload:(Maybe RejectPayload)
+= InternalMsgBody;
+// Сообщение отправляется на jetton_wallet_address, жетоны отправляются на jetton_vault_address
+deposit_liquidity_jetton_message#_ (JettonTransferMsg DepositLiquidityJettonPayload) = InternalMsgBody;
+
+/** Если сейл был завершен неуспешно, то **/
+
+// Покупатель может запросить возврат средств, для этого он отправляет запрос на адрес sft_item.fc
+sft_owner_refund_request#1075d7a3 query_id:uint64 = InternalMsgBody;
+// На контракте sft_item.fc проверяется, что запрос отправлен владельцем sft_item, а сейл закончился.
+// После этого параметр refund_requested становится true, и отправляется запрос на адрес ico_sale.fc:
+sft_item_refund_request#1075d7a3
+    query_id:uint64
+    index:uint256
+    collected_ton:Coins
+= InternalMsgBody;
+// На контракте ico_sale.fc проверяется, что сейл был завершен НЕуспешно (минимальный объем средств собран не был), и если да,
+// то приобретенные все TON, потраченные на покупку юзером, возвращаются ему. Иначе происходит исключение "sale_succeed"
+
+// --
+// Так же, в контракте сейла можно менять некоторые параметры:
+// владелец:
+change_owner_request#93b05b31
+    query_id:uint64
+    new_owner_address:MsgAddress
+= InternalMsgBody;
+// цена (на данный момент только до начала сейла):
+change_purchase_conditions_request#a7dd3e8d
+    query_id:uint64
+    new_conditions:^PurchaseConditionsRoot
+= InternalMsgBody;
+// новые участники реферальной программы с особыми условиями (на данный момент только до начала сейла):
+add_ref_addresses_request#7ae5c1ca
+    query_id:uint64
+    new_ref_addresses:RefsDict
+= InternalMsgBody;
