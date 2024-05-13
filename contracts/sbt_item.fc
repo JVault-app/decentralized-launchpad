@@ -40,7 +40,7 @@ global int   storage::refund_requested;
 
         storage::purchased_jettons = ds~load_coins();
         storage::collected_ton     = ds~load_coins();
-        storage::claimed_times  = ds~load_uint(16);
+        storage::claimed_times     = ds~load_uint(16);
         
         storage::first_unlock_time = ds~load_uint(32);
         storage::first_unlock_size = ds~load_uint(32);
@@ -142,8 +142,70 @@ global int   storage::refund_requested;
                 storage::purchased_jettons += new_purchased_jettons;
                 save_data();
             }
+
+            ;; notify buyer
+            builder msg_body = begin_cell()
+                                    .store_uint(op::transfer_notification, 32)
+                                    .store_uint(query_id, 64)
+                                    .store_coins(new_purchased_jettons)
+                                    .store_slice(storage::collection_address)
+                                    .store_uint(0, 1);
+            send_builder_message(storage::owner_address, 1, msg_body, mode::pay_fees_separately);
         }
 
+        return ();
+    }
+
+    if (op == op::claim) {
+        throw_unless(exc::incorrect_sender, equal_slices(storage::owner_address, sender_address));
+        throw_unless(exc::not_unlocked_yet, now() > storage::first_unlock_time);
+
+        int total_unlocks = 1 + min(storage::cycles_number, (now() - storage::first_unlock_time) / storage::cycle_length);
+        int available_percent = muldiv((total_unlocks - storage::claimed_times), percent_devider, storage::cycles_number);
+        if (storage::claimed_times == 0) {
+            available_percent += storage::first_unlock_size;
+        }
+        int available_jettons = muldiv(storage::purchased_jettons, available_percent, percent_devider);
+
+        throw_unless(exc::nothing_to_claim, available_jettons);
+
+        builder msg_body = begin_cell()
+                                .store_uint(op::claim, 32)
+                                .store_uint(query_id, 64)
+                                .store_uint(storage::index, 256)
+                                .store_coins(available_jettons);
+        send_builder_message(storage::collection_address, 0, msg_body, mode::carry_remaining_gas);
+
+        storage::claimed_times = total_unlocks; 
+        save_data();
+        return ();
+    }
+
+    if (op == op::request_refund) {
+        throw_unless(exc::incorrect_sender, equal_slices(storage::owner_address, sender_address));
+        throw_if(exc::refund_requested, storage::refund_requested);
+
+        builder msg_body = begin_cell()
+                                .store_uint(op::request_refund, 32)
+                                .store_uint(query_id, 64)
+                                .store_uint(storage::index, 256)
+                                .store_coins(storage::collected_ton);
+        send_builder_message(storage::collection_address, 0, msg_body, mode::carry_remaining_gas);
+        
+        storage::refund_requested = true;
+        save_data();
+        return ();
+    }
+
+    if (op == op::destroy) {
+        throw_unless(exc::incorrect_sender, equal_slices(storage::owner_address, sender_address));
+        throw_unless(exc::sale_not_finished, (storage::claimed_times == storage::cycles_number + 1) | storage::refund_requested);  ;; can burn SBT only after all claims
+
+        send_builder_message(sender_address, 0, begin_cell().store_uint(op::excesses, 32).store_uint(query_id, 64), mode::carry_remaining_balance);
+        storage::owner_address = null_addr();
+        storage::authority_address = null_addr();
+
+        save_data();
         return ();
     }
 
@@ -222,59 +284,6 @@ global int   storage::refund_requested;
     }
     ;; default SBT end
 
-
-    if (op == op::claim) {
-        throw_unless(exc::incorrect_sender, equal_slices(storage::owner_address, sender_address));
-        throw_unless(exc::not_unlocked_yet, now() > storage::first_unlock_time);
-
-        int total_unlocks = 1 + min(storage::cycles_number, (now() - storage::first_unlock_time) / storage::cycle_length);
-        int available_percent = muldiv((total_unlocks - storage::claimed_times), percent_devider, storage::cycles_number);
-        if (storage::claimed_times == 0) {
-            available_percent += storage::first_unlock_size;
-        }
-        throw_unless(exc::nothing_to_claim, available_percent);
-        int available_jettons = muldiv(storage::purchased_jettons, available_percent, percent_devider);
-
-        builder msg_body = begin_cell()
-                                .store_uint(op::claim, 32)
-                                .store_uint(query_id, 64)
-                                .store_uint(storage::index, 256)
-                                .store_coins(available_jettons);
-        send_builder_message(storage::collection_address, 0, msg_body, mode::carry_remaining_gas);
-
-        storage::claimed_times = total_unlocks; 
-        save_data();
-        return ();
-    }
-
-    if (op == op::request_refund) {
-        throw_unless(exc::incorrect_sender, equal_slices(storage::owner_address, sender_address));
-        throw_if(exc::refund_requested, storage::refund_requested);
-
-        builder msg_body = begin_cell()
-                                .store_uint(op::claim, 32)
-                                .store_uint(query_id, 64)
-                                .store_uint(storage::index, 256)
-                                .store_coins(storage::collected_ton);
-        send_builder_message(storage::collection_address, 0, msg_body, mode::carry_remaining_gas);
-        
-        storage::refund_requested = 1;
-        save_data();
-        return ();
-    }
-
-    if (op == op::destroy) {
-        throw_unless(exc::incorrect_sender, equal_slices(storage::owner_address, sender_address));
-        throw_unless(exc::sale_not_finished, (storage::claimed_times == storage::cycles_number + 1) | storage::refund_requested);  ;; can burn SBT only after all claims
-
-        send_builder_message(sender_address, 0, begin_cell().store_uint(op::excesses, 32).store_uint(query_id, 64), mode::carry_remaining_balance);
-        storage::owner_address = null_addr();
-        storage::authority_address = null_addr();
-
-        save_data();
-        return ();
-    }
-
     throw(0xffff);
 }
 
@@ -287,7 +296,10 @@ cell my_code() asm "MYCODE";
 
 (int, slice, slice, cell) get_wallet_data() method_id {
     load_data();
-    return (storage::purchased_jettons, storage::owner_address, storage::collection_address, my_code());
+    int claimed_percent = storage::claimed_times ? storage::first_unlock_size : 0;
+    claimed_percent += muldiv((storage::claimed_times - 1), percent_devider, storage::cycles_number);
+    int claimed_jettons = muldiv(storage::purchased_jettons, claimed_percent, percent_devider);
+    return (storage::purchased_jettons - claimed_jettons, storage::owner_address, storage::collection_address, my_code());
 }
 
 slice get_authority_address() method_id {

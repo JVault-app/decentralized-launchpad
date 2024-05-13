@@ -11,7 +11,7 @@ global cell  storage::content;                 ;; collection content (Cell)
 global cell  storage::sbt_item_code;           ;; NFT code (Cell)
 
 global cell  storage::purchase_conditions;     ;; Cell with purchases conditions for different WL lvls (Cell)
-global cell  storage::commission_factors;      ;; HashmapE. Key = minimum collected ton (uint128), Value = commission factor (uint32)
+global cell  storage::commission_factors;      ;; Hashmap. Key = minimum collected ton (uint128), Value = commission factor (uint32)
 
 global int   storage::default_cashback;        ;; cashback factor for default users (uint32)
 global int   storage::min_ref_purchase;        ;; minimum purchase volume to get ref code (Coins)
@@ -35,8 +35,8 @@ global int   storage::cycle_length;            ;; time between unlocks in second
 global int   storage::cycles_number;           ;; number of unlocks excluding initial (uint16)
 
 global slice storage::jetton_root_address;     ;; jetton root address (MsgAddress)
-global slice storage::native_vault;            ;; native vault address (MsgAddress)
-global slice storage::jetton_vault;            ;; jetton vault address (MsgAddress)
+global slice storage::native_vault_address;            ;; native vault address (MsgAddress)
+global slice storage::jetton_vault_address;            ;; jetton vault address (MsgAddress)
 
 global slice storage::jetton_wallet_address;   ;; jetton wallet address of this smc (MsgAddress)
 global int   storage::jettons_added?;          ;; Were jettons added to smart contract? (uint1)
@@ -72,7 +72,7 @@ global int jettons_for_sale;
     storage::jettons_added?        = ds~load_int(1);
     storage::sale_finished?        = ds~load_int(1);
 
-    slice collection_info = ds~load_ref().begin_parse(); ;; data: 267 + 267 = 534; refs: content + sbt_item_code = 2
+    slice collection_info          = ds~load_ref().begin_parse(); ;; data: 267 + 267 = 534; refs: content + sbt_item_code = 2
     storage::admin_address         = collection_info~load_msg_addr();
     storage::owner_address         = collection_info~load_msg_addr();
     storage::content               = collection_info~load_ref();
@@ -80,8 +80,8 @@ global int jettons_for_sale;
 
     slice internal_ds              = ds~load_ref().begin_parse(); ;; data: 267 + 267 + 267 = 801; refs: purchaise_conditions + commission_factors = 2
     storage::jetton_root_address   = internal_ds~load_msg_addr();
-    storage::native_vault          = internal_ds~load_msg_addr();
-    storage::jetton_vault          = internal_ds~load_msg_addr();
+    storage::native_vault_address  = internal_ds~load_msg_addr();
+    storage::jetton_vault_address  = internal_ds~load_msg_addr();
     storage::purchase_conditions   = internal_ds~load_ref();
     storage::commission_factors    = internal_ds~load_ref();
     
@@ -131,8 +131,8 @@ global int jettons_for_sale;
             .store_ref( ;; internal_ds
                 begin_cell()
                 .store_slice(storage::jetton_root_address)
-                .store_slice(storage::native_vault)
-                .store_slice(storage::jetton_vault)
+                .store_slice(storage::native_vault_address)
+                .store_slice(storage::jetton_vault_address)
                 .store_ref(storage::purchase_conditions)
                 .store_ref(storage::commission_factors)
                 .end_cell()
@@ -150,11 +150,10 @@ global int jettons_for_sale;
 }
 
 builder store_pool_params_native_jetton(builder b, int jetton_root_workchain, int jetton_root_address_hash) inline {
-    return b.store_uint(0, 5).store_uint(1, 4).store_uint(jetton_root_workchain, 8).store_uint(jetton_root_address_hash, 256);
+    return b.store_uint(1, 9).store_uint(jetton_root_workchain, 8).store_uint(jetton_root_address_hash, 256);
 }
 
-() provide_liquidity(int jetton_amount, int ton_amount) impure inline {
-    int query_id = cur_lt();
+() provide_liquidity(int query_id, int jetton_amount, int ton_amount) impure inline {
     ton_amount -= ONE_TON;
 
     (int jetton_root_workchain, int jetton_root_address_hash) = parse_std_addr(storage::jetton_root_address);
@@ -165,7 +164,8 @@ builder store_pool_params_native_jetton(builder b, int jetton_root_workchain, in
 
     cell native_provide_lp_message = begin_cell()
                                         .store_uint(op::deposit_liquidity_native, 32)
-                                        .store_uint(query_id, 64).store_coins(ton_amount)
+                                        .store_uint(query_id, 64)
+                                        .store_coins(ton_amount)
                                         .store_pool_params_native_jetton(jetton_root_workchain, jetton_root_address_hash)
                                         .store_ref(assets.end_cell())
                                         .store_maybe_ref(fulfill_payload)
@@ -180,13 +180,14 @@ builder store_pool_params_native_jetton(builder b, int jetton_root_workchain, in
                                         .store_maybe_ref(reject_payload)
                                     .end_cell();
 
-    send_cell_message(storage::native_vault, gas::provide_ton, native_provide_lp_message, mode::simple);
-    send_jettons(query_id, jetton_amount, storage::jetton_vault, my_address(), storage::jetton_wallet_address, gas::provide_jetton + gas::send_jettons, 
+    send_cell_message(storage::native_vault_address, gas::provide_ton, native_provide_lp_message, mode::simple);
+    send_jettons(query_id, jetton_amount, storage::jetton_vault_address, my_address(), storage::jetton_wallet_address, gas::provide_jetton + gas::send_jettons, 
                  mode::simple, gas::provide_jetton, jetton_provide_lp_message);
 }
 
 
-() sell_tokens(int msg_value, slice buyer_address, int price_factor, int price_devider, int min_purchase_ton, int max_purchase_ton, slice ref_address, int cashback_factor) impure inline {
+() sell_tokens(int query_id, int msg_value, slice buyer_address, int price_factor, int price_devider, 
+                int min_purchase_ton, int max_purchase_ton, slice ref_address, int cashback_factor) impure inline {
     msg_value -= gas::purchase;
     int jettons_to_purchase = muldiv(msg_value, price_devider, price_factor);
     storage::jettons_sold += jettons_to_purchase;
@@ -238,14 +239,14 @@ builder store_pool_params_native_jetton(builder b, int jetton_root_workchain, in
 }
 
 
-() approve_purchase(slice buyer_address, int received_ton, slice ref_data) impure inline {
+() approve_purchase(int query_id, slice buyer_address, int received_ton, slice ref_data) impure inline {
     ;; update "total cashback" for buyer's invitee
     ifnot(slice_empty?(ref_data)) {
         (slice ref_address, int cashback_factor) = (ref_data~load_msg_addr(), ref_data~load_uint(32));
         int cashback = muldiv(received_ton, cashback_factor, percent_devider);
         builder msg_body = begin_cell()
                             .store_uint(op::update_ref_wallet, 32)
-                            .store_uint(cur_lt(), 64)
+                            .store_uint(query_id, 64)
                             .store_coins(cashback);
         send_builder_message(ref_address, gas::update_wallet, msg_body, mode::simple);
     }
@@ -260,10 +261,8 @@ builder store_pool_params_native_jetton(builder b, int jetton_root_workchain, in
 }
 
 
-() finish_sale(slice sender_address) {
+() finish_sale(slice sender_address, int query_id) {
     raw_reserve(0, 4);
-
-    int query_id = cur_lt();
 
     ;; Sale failed
     if (storage::ton_collected < storage::min_ton_collected) { 
@@ -275,12 +274,12 @@ builder store_pool_params_native_jetton(builder b, int jetton_root_workchain, in
         int total_used_jettons = muldiv(storage::jettons_sold, percent_devider, (percent_devider - storage::liquidity_part_jetton));
         
         int jettons_to_burn = storage::allocated_jettons - total_used_jettons;
-        burn_jettons(0, jettons_to_burn, storage::jetton_wallet_address, sender_address, gas::burn_jettons, mode::simple);
+        burn_jettons(query_id, jettons_to_burn, storage::jetton_wallet_address, sender_address, gas::burn_jettons, mode::simple);
 
         int jettons_for_liquidity = muldiv(total_used_jettons, storage::liquidity_part_jetton, percent_devider);
         
         int ton_for_liquidity = muldiv(storage::ton_collected, storage::liquidity_part_ton, percent_devider);
-        provide_liquidity(jettons_for_liquidity, ton_for_liquidity);
+        provide_liquidity(query_id, jettons_for_liquidity, ton_for_liquidity);
 
         (_, slice cfs, int success) = storage::commission_factors.udict_get_preveq?(128, storage::ton_collected);
         int ton_for_launchpad = muldiv(storage::ton_collected, cfs~load_uint(32), percent_devider);
@@ -290,7 +289,7 @@ builder store_pool_params_native_jetton(builder b, int jetton_root_workchain, in
         send_message_with_comment(storage::owner_address, ton_for_founder, "JVault Launchpad payout for ICO creator", mode::simple);
     }
 
-    send_builder_message(sender_address, 0, begin_cell().store_uint(op::excesses, 32).store_uint(query_id, 64), 128);
+    send_builder_message(sender_address, 0, begin_cell().store_uint(op::excesses, 32).store_uint(query_id, 64), mode::carry_remaining_balance);
     storage::sale_finished? = true;
     save_data();
     return ();
@@ -385,17 +384,17 @@ builder store_pool_params_native_jetton(builder b, int jetton_root_workchain, in
 
         (slice ref_address, int discount_factor, int cashback_factor) = get_referral_data(in_msg_body);
 
-        sell_tokens(msg_value, sender_address, price_factor * (percent_devider - discount_factor), price_devider * percent_devider, min_purchase_ton, max_purchase_ton, ref_address, cashback_factor);
+        sell_tokens(query_id, msg_value, sender_address, price_factor * (percent_devider - discount_factor), price_devider * percent_devider, min_purchase_ton, max_purchase_ton, ref_address, cashback_factor);
         return ();
     }
 
-    ;; End sale (provide liquidity and send TON to founder & launchpad)
+    ;; End sale (provide liquidity and send TON to creator & launchpad)
     if (op == op::end_sale) {
         throw_unless(exc::out_of_gas, msg_value >= gas::end_sale);
         throw_unless(exc::sale_not_finished, now() > storage::sale_end_time);
         throw_if(exc::sale_finished, storage::sale_finished?);
-        finish_sale(sender_address);
-
+        
+        finish_sale(sender_address, query_id);
         return ();
     }
 
@@ -410,6 +409,8 @@ builder store_pool_params_native_jetton(builder b, int jetton_root_workchain, in
 
         if (op == op::claim) {
             throw_unless(exc::sale_failed, storage::ton_collected < storage::min_ton_collected);
+            throw_unless(exc::sale_not_finished, storage::sale_finished?);
+
             send_jettons(query_id, coins_amount, sbt_owner_address, sbt_owner_address, storage::jetton_wallet_address, 0, 
                             mode::carry_remaining_gas, 1, begin_cell().store_uint(0, 32).store_slice("Claim from JVault Launchpad").end_cell());
         }
@@ -424,7 +425,7 @@ builder store_pool_params_native_jetton(builder b, int jetton_root_workchain, in
         }
         if (op == op::approve_purchase) {
             slice ref_data = in_msg_body~load_dict().begin_parse();
-            approve_purchase(sbt_owner_address, coins_amount, ref_data);
+            approve_purchase(query_id, sbt_owner_address, coins_amount, ref_data);
         }
 
         return ();
@@ -458,6 +459,7 @@ builder store_pool_params_native_jetton(builder b, int jetton_root_workchain, in
     if (op == op::transfer_notification) { 
         int transferred_jettons = in_msg_body~load_coins();
         slice from_address = in_msg_body~load_msg_addr();
+        
         ifnot (in_msg_body.slice_refs_empty?()) {
             slice jetton_payload = in_msg_body~load_ref().begin_parse();
             if (jetton_payload~load_uint(32) == op::liquidity_fulfill) {
@@ -494,6 +496,8 @@ builder store_pool_params_native_jetton(builder b, int jetton_root_workchain, in
     }
 
     if (op == op::change_purchase_info) {
+        ;; TODO allow to increase prices
+        throw_unless(exc::already_started, now() < storage::sale_start_time);
         storage::purchase_conditions = in_msg_body~load_ref();
 
         send_builder_message(storage::owner_address, 0, begin_cell().store_uint(op::excesses, 32).store_uint(query_id, 64), mode::carry_remaining_gas);
@@ -502,6 +506,8 @@ builder store_pool_params_native_jetton(builder b, int jetton_root_workchain, in
     }
 
     if (op == op::add_ref_addresses) {
+        ;; TODO allow to add refs with cashback not exceeding current maximum value
+        throw_unless(exc::already_started, now() < storage::sale_start_time);
         cell new_addresses = in_msg_body~load_dict();
         (int ref_address, slice ref_conditions, int success) = new_addresses.udict_get_min?(256);
         while (success) {
@@ -519,6 +525,8 @@ builder store_pool_params_native_jetton(builder b, int jetton_root_workchain, in
 }
 
 
+;; Jetton
+
 (int, int, slice, cell, cell) get_jetton_data() method_id {
     load_data();
     return (storage::jettons_sold, storage::jettons_added? & (storage::jettons_sold <= jettons_for_sale) & (now() <= storage::sale_end_time), storage::owner_address, storage::content, storage::sbt_item_code);
@@ -533,6 +541,73 @@ slice get_wallet_address(slice owner_address) method_id {
 }
 
 
+;; ;; SBT
+;;
+;; (int, cell, slice) get_collection_data() method_id {
+;;     load_data();
+;;     slice cs = storage::content.begin_parse();
+;;     return (uint_256_max, cs~load_ref(), storage::owner_address);
+;; }
+
+
+;; slice get_nft_address_by_index(int index) method_id {
+;;     load_data();
+;;     cell state_init = calculate_nft_item_state_init(index, storage::sbt_item_code, my_address());
+;;     return get_address_by_state_init(state_init);
+;; }
+
+
+;; (int, int, slice) royalty_params() method_id {
+;;     return (0, 100, my_address());
+;; }
+
+;; cell get_nft_content(int index, cell individual_nft_content) method_id {
+;;     load_data();
+;;     slice cs = storage::content.begin_parse();
+;;     cs~load_ref();
+;;     cell common_content_dict = cs~load_dict();
+;;     (slice delimiter_sc, int f) = common_content_dict~udict_delete_get?(256, "delimiter"H);
+;;     int delimiter = 9;
+;;     if (f) {
+;;         delimiter = delimiter_sc~load_uint(8);
+;;     }
+
+;;     slice individual_nft_content_cs = individual_nft_content.begin_parse();
+;;     int number = individual_nft_content_cs~load_coins();
+;;     builder string = begin_cell().store_uint(0, 2).store_slice("Current share: ");
+
+;;     int b = 1;
+;;     repeat (delimiter) {
+;;         b *= 10;
+;;     }
+;;     (int quot, int reminder) = number.divmod(b);
+;;     int res = 0;
+;;     do {
+;;         (quot, res) = quot.divmod(10);
+;;         string = string.store_uint(res + 48, 256);
+;;     } until (quot == 0);
+
+;;     string = string.store_slice(".");
+
+;;     b = 0;
+;;     do {
+;;         (reminder, res) = reminder.divmod(10);
+;;         string = string.store_uint(res + 48, 256);
+;;         b += 1;
+;;     } until ((reminder == 0) | (b == 4));
+
+;;     (slice ticker, f) = common_content_dict~udict_delete_get?(256, "ticker"H);
+;;     ifnot (f) {
+;;         ticker = " tokens";
+;;     }
+;;     string = string.store_ref(begin_cell().store_slice(ticker).end_cell());
+;;     common_content_dict~udict_set_ref(256, "description"H, string.end_cell());
+        
+;;     return (begin_cell()
+;;                 .store_uint(0, 8)  ;; onchain tag
+;;                 .store_dict(common_content_dict)
+;;             .end_cell());
+;; }
 
 
 ;; (int, slice, slice, cell, cell, cell, cell, cell, int, int, int, int, int, int, int, int, int, int, slice) get_storage_data() method_id {

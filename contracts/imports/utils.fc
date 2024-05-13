@@ -61,8 +61,7 @@ cell calculate_ref_wallet_state_init(slice owner_address, cell ref_wallet_code, 
 
 
 slice get_address_by_state_init(cell state_init) inline { 
-    return begin_cell().store_uint(4, 3)
-                        .store_int(0, 8)
+    return begin_cell().store_uint(1024, 11)
                         .store_uint(cell_hash(state_init), 256)
                         .end_cell()
                         .begin_parse();

@@ -13,7 +13,7 @@ const int op::take_wallet_address     = 0xd1735400;
 const int op::burn_jetton             = 0x595f07bc;
 
 ;; NFT-collection
-const int op::change_owner            = 0x3;
+const int op::change_owner            = 0x93b05b31;
 const int op::change_purchase_info    = 0xa7dd3e8d;
 const int op::add_ref_addresses       = 0x7ae5c1ca;
 const int op::withdraw_ton            = 0x37726bdb;
@@ -48,15 +48,15 @@ const int op::update_ref_wallet       = 0x940298fc;
 const int op::claim_ref               = 0x1f7b4e41;
 
 ;; Sales admin
-const int op::deploy_sale             = 0xe43cca45;
+const int op::deploy_ico_sale         = 0x16ccca41;
 const int op::send_commissions        = 0xb96adaea;
 const int op::send_any_message        = 0x9ec1e14;
 
 ;; LP Messages
 const int op::deposit_liquidity_native = 0xd55e4686;
 const int op::deposit_liquidity_jetton = 0x40e108d6;
-const int op::liquidity_fulfill = 0xb9b68ef4;
-const int op::liquidity_reject = 0x9364a426; 
+const int op::liquidity_fulfill        = 0xb9b68ef4;
+const int op::liquidity_reject         = 0x9364a426; 
 
 {- EXCEPTIONS -}
 
@@ -82,6 +82,7 @@ const int exc::sale_failed = 54;
 const int exc::sale_succeed = 55;
 const int exc::refund_requested = 56;
 const int exc::already_inited = 57;
+const int exc::already_started = 58;
 
 
 const int exc::wrong_chain = 333;
@@ -95,7 +96,7 @@ const int gas::send_jettons    = 40000000;
 const int gas::burn_jettons    = 30000000;
 const int gas::provide_addr    = 10000000;
 
-const int gas::deploy_sale     = 50000000;
+const int gas::deploy_ico_sale = 50000000;
 const int gas::deploy_sbt      = 50000000;
 const int gas::deploy_ref      = 50000000;
 
