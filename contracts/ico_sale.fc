@@ -35,8 +35,8 @@ global int   storage::cycle_length;            ;; time between unlocks in second
 global int   storage::cycles_number;           ;; number of unlocks excluding initial (uint16)
 
 global slice storage::jetton_root_address;     ;; jetton root address (MsgAddress)
-global slice storage::native_vault_address;            ;; native vault address (MsgAddress)
-global slice storage::jetton_vault_address;            ;; jetton vault address (MsgAddress)
+global slice storage::native_vault_address;    ;; native vault address (MsgAddress)
+global slice storage::jetton_vault_address;    ;; jetton vault address (MsgAddress)
 
 global slice storage::jetton_wallet_address;   ;; jetton wallet address of this smc (MsgAddress)
 global int   storage::jettons_added?;          ;; Were jettons added to smart contract? (uint1)

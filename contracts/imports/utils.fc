@@ -55,7 +55,7 @@ cell calculate_nft_item_state_init(int item_index, cell nft_item_code, slice col
 
 
 cell calculate_ref_wallet_state_init(slice owner_address, cell ref_wallet_code, int sale_end_time) inline {
-    cell data = begin_cell().store_slice(owner_address).store_slice(my_address()).store_uint(0, 1).store_uint(sale_end_time, 32).end_cell();
+    cell data = begin_cell().store_slice(owner_address).store_slice(my_address()).store_uint(sale_end_time, 32).store_uint(0, 1).end_cell();
     return begin_cell().store_uint(0, 2).store_dict(ref_wallet_code).store_dict(data).store_uint(0, 1).end_cell();
 }
 

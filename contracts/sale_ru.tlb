@@ -296,7 +296,8 @@ cancel_purchase_message#7d1d7445
 ref_wallet_storage$_
     owner_address:MsgAddress
     collection_address:MsgAddress
-    _:(Maybe [sale_end_time:uint32 collected_ton:Coins])
+    sale_end_time:uint32
+    collected_ton:(Maybe Coins)
 = RefWalletStorage;
 ref_wallet_deploy_body$0 = InternalMsgBody;
 

@@ -16,10 +16,10 @@ global int   storage::collected_ton;
 
     storage::owner_address      = ds~load_msg_addr();
     storage::collection_address = ds~load_msg_addr();
-    storage::init?              = ds~load_int(1);
+    storage::sale_end_time      = ds~load_uint(32);
 
+    storage::init?              = ds~load_int(1);
     if (storage::init?) {
-        storage::sale_end_time  = ds~load_uint(32);
         storage::collected_ton  = ds~load_coins();
     }
 }
@@ -30,8 +30,8 @@ global int   storage::collected_ton;
         begin_cell()
             .store_slice(storage::owner_address)
             .store_slice(storage::collection_address)
-            .store_int(storage::init?, 1)
             .store_uint(storage::sale_end_time, 32)
+            .store_int(true, 1)
             .store_coins(storage::collected_ton)
         .end_cell()
     );
