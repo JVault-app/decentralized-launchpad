@@ -1,9 +1,18 @@
 import { Address, beginCell, Cell, Contract, contractAddress, ContractProvider, Sender, SendMode } from 'ton-core';
 
-export type RefWalletConfig = {};
+export type RefWalletConfig = {
+    ownerAddress: Address;
+    collectionAddress: Address;
+    saleEndTime: number;
+};
 
 export function refWalletConfigToCell(config: RefWalletConfig): Cell {
-    return beginCell().endCell();
+    return beginCell()
+                .storeAddress(config.ownerAddress)
+                .storeAddress(config.collectionAddress)
+                .storeUint(config.saleEndTime, 32)
+                .storeBit(0)
+            .endCell();
 }
 
 export class RefWallet implements Contract {

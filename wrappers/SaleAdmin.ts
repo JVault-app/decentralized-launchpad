@@ -1,9 +1,33 @@
 import { Address, beginCell, Cell, Contract, contractAddress, ContractProvider, Sender, SendMode } from 'ton-core';
 
-export type SaleAdminConfig = {};
+export type SaleAdminConfig = {
+
+    ownerAddress: Address;
+    jettonWalletAddress: Address;
+    revenueShareAddresses: Cell;
+
+    creationFees: Cell;
+    commissionFactors: Cell;
+    icoSaleCode: Cell;
+    sbtItemCode: Cell;
+    refWalletCode: Cell;
+};
 
 export function saleAdminConfigToCell(config: SaleAdminConfig): Cell {
-    return beginCell().endCell();
+    return beginCell()
+                .storeAddress(config.ownerAddress)
+                .storeRef(
+                    beginCell()
+                        .storeRef(config.icoSaleCode)
+                        .storeRef(config.sbtItemCode)
+                        .storeRef(config.refWalletCode)
+                    .endCell()
+                )
+                .storeRef(config.creationFees)
+                .storeRef(config.commissionFactors)
+                .storeRef(config.revenueShareAddresses)
+                .storeAddress(config.jettonWalletAddress)
+            .endCell();
 }
 
 export class SaleAdmin implements Contract {
