@@ -205,7 +205,7 @@ builder store_pool_params_native_jetton(builder b, int jetton_root_workchain, in
     
     builder sbt_message = begin_cell()
                             .store_uint(op::update_sbt_data, 32)
-                            .store_uint(0, 64)
+                            .store_uint(query_id, 64)
                             .store_coins(jettons_to_purchase)
                             .store_coins(msg_value)
                             .store_coins(max_purchase_ton)
@@ -254,7 +254,7 @@ builder store_pool_params_native_jetton(builder b, int jetton_root_workchain, in
     ;; deploy buyer's ref_wallet
     if (received_ton > storage::min_ref_purchase) {
         cell ref_wallet_state_init = calculate_ref_wallet_state_init(buyer_address, storage::ref_wallet_code, storage::sale_end_time);
-        send_deploy_message(get_address_by_state_init(ref_wallet_state_init), gas::deploy_sbt, ref_wallet_state_init, null(), mode::simple);
+        send_deploy_message(get_address_by_state_init(ref_wallet_state_init), gas::deploy_ref, ref_wallet_state_init, null(), mode::simple);
     }
 
     return ();
