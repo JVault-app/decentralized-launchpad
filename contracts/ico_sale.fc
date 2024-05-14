@@ -13,7 +13,7 @@ global cell  storage::sbt_item_code;           ;; NFT code (Cell)
 global cell  storage::purchase_conditions;     ;; Cell with purchases conditions for different WL lvls (Cell)
 global cell  storage::commission_factors;      ;; Hashmap. Key = minimum collected ton (uint128), Value = commission factor (uint32)
 
-global int   storage::default_discount;        ;; discount factor for default users (uint32)
+;; global int   storage::default_discount;        ;; discount factor for default users (uint32)
 global int   storage::default_cashback;        ;; cashback factor for default users (uint32)
 
 global int   storage::min_ref_purchase;        ;; minimum purchase volume to get ref code (Coins)
@@ -80,19 +80,18 @@ global int jettons_for_sale;
     storage::content               = collection_info~load_ref();
     storage::sbt_item_code         = collection_info~load_ref();
 
-    slice internal_ds              = ds~load_ref().begin_parse(); ;; data: 267 + 267 + 267 = 801; refs: purchaise_conditions + commission_factors = 2
+    slice internal_ds              = ds~load_ref().begin_parse(); ;; data: 267 + 267 + 267 + 128 + 32 + 1 = 962; refs: purchaise_conditions + commission_factors = 2
     storage::jetton_root_address   = internal_ds~load_msg_addr();
     storage::native_vault_address  = internal_ds~load_msg_addr();
     storage::jetton_vault_address  = internal_ds~load_msg_addr();
     storage::purchase_conditions   = internal_ds~load_ref();
     storage::commission_factors    = internal_ds~load_ref();
     
-    slice ref_conditions           = ds~load_ref().begin_parse(); ;; data: 128 + 32 + 32 + 1 = 193; refs: refs_dict + ref_wallet_code = 2
-    storage::min_ref_purchase      = ref_conditions~load_coins();
-    storage::default_discount      = ref_conditions~load_uint(32);
-    storage::default_cashback      = ref_conditions~load_uint(32);
-    storage::refs_dict             = ref_conditions~load_dict();
-    storage::ref_wallet_code       = ref_conditions~load_ref(); 
+    storage::min_ref_purchase      = internal_ds~load_coins();
+    ;; storage::default_discount      = ref_conditions~load_uint(32);
+    storage::default_cashback      = internal_ds~load_uint(32);
+    storage::refs_dict             = internal_ds~load_dict();
+    storage::ref_wallet_code       = internal_ds~load_ref(); 
 
     jettons_for_sale = storage::jettons_added? ? muldiv(storage::allocated_jettons, (percent_devider - storage::liquidity_part_jetton), percent_devider) : 0;
 }
@@ -133,22 +132,18 @@ global int jettons_for_sale;
             ) ;; \collection_info
             .store_ref( ;; internal_ds
                 begin_cell()
-                .store_slice(storage::jetton_root_address)
-                .store_slice(storage::native_vault_address)
-                .store_slice(storage::jetton_vault_address)
-                .store_ref(storage::purchase_conditions)
-                .store_ref(storage::commission_factors)
-                .end_cell()
-            ) ;; \internal_ds
-            .store_ref( ;; ref_conditions
-                begin_cell()
+                    .store_slice(storage::jetton_root_address)
+                    .store_slice(storage::native_vault_address)
+                    .store_slice(storage::jetton_vault_address)
+                    .store_ref(storage::purchase_conditions)
+                    .store_ref(storage::commission_factors)
                     .store_coins(storage::min_ref_purchase)
-                    .store_uint(storage::default_discount, 32)
+                    ;; .store_uint(storage::default_discount, 32)
                     .store_uint(storage::default_cashback, 32)
                     .store_dict(storage::refs_dict)
                     .store_ref(storage::ref_wallet_code)
                 .end_cell()
-            ) ;; \ref_conditions
+            ) ;; \internal_ds
         .end_cell()
     );
 }
@@ -314,7 +309,7 @@ builder store_pool_params_native_jetton(builder b, int jetton_root_workchain, in
             cashback_factor = refs_conditions~load_uint(32);
         }
         else {  ;; default conditions
-            discount_factor = storage::default_discount;
+            ;; discount_factor = storage::default_discount;
             cashback_factor = storage::default_cashback; 
         }
         ref_address = get_address_by_state_init(calculate_ref_wallet_state_init(from_address, storage::ref_wallet_code, storage::sale_end_time  ));

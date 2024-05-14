@@ -152,11 +152,8 @@ ico_sale_data$_
         native_vault_address:MsgAddress
         jetton_vault_address:MsgAddress
         purchase_conditions:PurchaseConditionsRoot
-    ]
-         
-    ref_conditions:^[
+
         min_ref_purchase:Coins
-        default_discount:uint32
         default_cashback:uint32
         refs_dict:RefsDict
         ref_wallet_code:^Cell

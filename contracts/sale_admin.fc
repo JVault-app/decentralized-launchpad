@@ -156,21 +156,17 @@ cell get_sale_data(slice sender_address, slice sale_data, int transferred_jetton
                 ) ;; \collection_info
                 .store_ref( ;; internal_ds
                     begin_cell()
-                    .store_slice(jetton_root_address)
-                    .store_slice(native_vault_address)
-                    .store_slice(jetton_vault_address)
-                    .store_ref(purchase_conditions)
-                    .store_ref(commission_factors)
-                    .end_cell()
-                ) ;; \internal_ds
-                .store_ref( ;; ref_conditions
-                    begin_cell()
+                        .store_slice(jetton_root_address)
+                        .store_slice(native_vault_address)
+                        .store_slice(jetton_vault_address)
+                        .store_ref(purchase_conditions)
+                        .store_ref(commission_factors)
                         .store_coins(min_ref_purchase)
                         .store_uint(default_cashback, 32)
                         .store_dict(refs_dict)
                         .store_ref(ref_wallet_code)
                     .end_cell()
-                ) ;; \ref_conditions
+                ) ;; \internal_ds
             .end_cell();
 }
 
