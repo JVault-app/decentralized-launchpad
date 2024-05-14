@@ -96,7 +96,7 @@ refs_dict$_
 = RefsDict;
 
 commission_factors$_
-    _:(Hashmap 128 uint32)  // (minimum collected TON): (commission_factor)
+    _:(HashmapE 128 uint32)  // (minimum collected TON): (commission_factor)
 = CommissionFactors;
 
 // =======================================================================
@@ -218,9 +218,7 @@ ico_sale_storage$_
         native_vault_address:MsgAddress
         jetton_vault_address:MsgAddress
         purchase_conditions:PurchaseConditionsRoot
-    ]
-
-    ref_conditions:^[
+        commission_factors: CommissionFactors
         min_ref_purchase:Coins
         default_cashback:uint32
         refs_dict:RefsDict
@@ -239,15 +237,17 @@ ico_sale_storage$_
 // --
 // Запрос покупки с кошелька юзера, без whitelist
 purchase_ref_request#_
-    invitee_address:^MsgAddress
+    invitee_address:(Maybe ^MsgAddress)
 = InternalMsgBody;
 
 // Запрос покупка через whitelist, отправляется с whitelist SBT
 purchase_whitelist_request#0524c7ae
     wl_sbt_index:uint256
     owner_address:MsgAddress
-    wl_index:^uint2
-    invitee_address:(Optional ^MsgAddress)
+    _: ^[
+        wl_index:uint2
+        invitee_address:(Maybe ^MsgAddress)
+    ]
 = InternalMsgBody;
 
 // При успешной проверке условий на контракте ico_sale, происходит деплой или обновление sft_item.fc

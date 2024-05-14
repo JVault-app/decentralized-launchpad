@@ -1,4 +1,6 @@
 import { Address, beginCell, Cell, Contract, contractAddress, ContractProvider, Sender, SendMode } from 'ton-core';
+import { Maybe } from 'ton-core/dist/utils/maybe';
+import { OpCodes } from './helpers/constants';
 
 export type RefWalletConfig = {
     ownerAddress: Address;
@@ -36,8 +38,16 @@ export class RefWallet implements Contract {
         });
     }
 
+    async sendClaimRef(provider: ContractProvider, via: Sender, value: bigint, queryId: Maybe<number | bigint>) {
+        await provider.internal(via, {
+            value,
+            sendMode: SendMode.PAY_GAS_SEPARATELY,
+            body: beginCell().storeUint(OpCodes.CLAIM_REF, 32).storeUint(queryId ?? 0, 64).endCell(),
+        });
+    }
+
     async getStorageData(provider: ContractProvider) {
-        let { stack } = await provider.get('get_wallet_data', []);
+        let { stack } = await provider.get('get_storage_data', []);
         return {
             init: stack.readNumber(),
             owner_address: stack.readAddress(),

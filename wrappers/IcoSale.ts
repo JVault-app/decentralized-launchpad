@@ -1,6 +1,80 @@
-import { Address, beginCell, Cell, Contract, contractAddress, ContractProvider, Dictionary, Sender, SendMode, toNano } from 'ton-core';
-import internal from 'stream';
+import { Address, beginCell, Builder, Cell, Contract, contractAddress, ContractProvider, Dictionary, DictionaryKey, DictionaryValue, Sender, SendMode, toNano } from 'ton-core';
+import { OpCodes } from "./helpers/constants"
+import { Maybe } from 'ton-core/dist/utils/maybe';
 
+
+export type PurchaseConditionsWhitelist = {
+    priceFactor: bigint
+    priceDevider: bigint
+    minPurchaseTon: bigint
+    maxPurchaseTon: bigint
+    wlCollectionAddress: Address
+    wlSbtCode: Cell
+}
+
+export type PurchaseConditionsRoot = {
+    priceFactor: bigint
+    priceDevider: bigint
+    minPurchaseTon: bigint
+    maxPurchaseTon: bigint
+    wlCondition1: Maybe<PurchaseConditionsWhitelist>
+    wlCondition2: Maybe<PurchaseConditionsWhitelist>
+    wlCondition3: Maybe<PurchaseConditionsWhitelist>
+    wlCondition4: Maybe<PurchaseConditionsWhitelist>
+}
+
+export function storePurchaseConditionsWhitelist(src: PurchaseConditionsWhitelist) {
+    return (builder: Builder) => {
+        builder.storeUint(src.priceFactor, 128).storeUint(src.priceDevider, 128).storeCoins(src.minPurchaseTon).storeCoins(src.maxPurchaseTon).storeAddress(src.wlCollectionAddress).storeRef(src.wlSbtCode)
+    };
+}
+
+export function storeMaybePurchaseConditionsWhitelist(src: Maybe<PurchaseConditionsWhitelist>) {
+    return (builder: Builder) => {
+        builder.storeMaybeRef(src ? beginCell().store(storePurchaseConditionsWhitelist(src)).endCell() : null)
+    };
+}
+
+export function storePurchaseConditionsRoot(src: PurchaseConditionsRoot) {
+    return (builder: Builder) => {
+        builder.storeUint(src.priceFactor, 128)
+                .storeUint(src.priceDevider, 128)
+                .storeCoins(src.minPurchaseTon)
+                .storeCoins(src.maxPurchaseTon)
+                .store(storeMaybePurchaseConditionsWhitelist(src.wlCondition1))
+                .store(storeMaybePurchaseConditionsWhitelist(src.wlCondition2))
+                .store(storeMaybePurchaseConditionsWhitelist(src.wlCondition3))
+                .store(storeMaybePurchaseConditionsWhitelist(src.wlCondition4))
+    };
+}
+
+export type RefsDictValue = {
+    cashbackFactor: number
+    discountFactor: number
+}
+
+function RefsDictValueParser(): DictionaryValue<RefsDictValue> {
+    return {
+        serialize: (src, buidler) => {
+            buidler.storeUint(src.cashbackFactor, 32).storeUint(src.discountFactor, 32).endCell();
+        },
+        parse: (src) => {
+            return {cashbackFactor: src.loadUint(32), discountFactor: src.loadUint(32)};
+        }
+    }
+}
+
+function AddressHashParser(): DictionaryKey<Address> {
+    return {
+        bits: 256,
+        serialize: (src) => {
+            return BigInt(`0x${src.hash.toString("hex")}`);
+        },
+        parse: (src) => {
+            return Address.parseRaw(`0:${src.toString(16)}`);
+        }
+    }
+}
 
 export type IcoSaleConfig = {
     saleStartTime: number;
@@ -22,22 +96,22 @@ export type IcoSaleConfig = {
     ownerAddress: Address;
     content: Cell;
     sbtItemCode: Cell;
+
     jettonRootAddress: Address;
     nativeVaultAddress: Address;
     jettonVaultAddress: Address;
-    purchaseConditions: Cell;
-    commission_factors: Cell;
-    
+    purchaseConditions: PurchaseConditionsRoot;
+    commission_factors: Dictionary<bigint, number>;
+
     minRefPurchase: bigint;
     defaultCashback: number;
-    refs_dict: Cell;
+    refsDict: Dictionary<Address, RefsDictValue>;
     refWalletCode: Cell; 
 };
 
 export type IcoSaleContent = {
 
 };
-
 
 export function buildIcoSaleContentCell(data: IcoSaleContent): Cell {
     return Cell.EMPTY;
@@ -80,11 +154,11 @@ export function IcoSaleConfigToCell(config: IcoSaleConfig): Cell {
                     .storeAddress(config.jettonRootAddress)
                     .storeAddress(config.nativeVaultAddress)
                     .storeAddress(config.jettonVaultAddress)
-                    .storeRef(config.purchaseConditions)
-                    .storeRef(config.commission_factors)
+                    .storeRef(beginCell().store(storePurchaseConditionsRoot(config.purchaseConditions)).endCell())
+                    .storeDict(config.commission_factors, Dictionary.Keys.BigUint(128), Dictionary.Values.Uint(32))
                     .storeCoins(config.minRefPurchase)
                     .storeUint(config.defaultCashback, 32)
-                    .storeMaybeRef(config.refs_dict)
+                    .storeDict(config.refsDict, AddressHashParser(), RefsDictValueParser())
                     .storeRef(config.refWalletCode)
                 .endCell()
             ) 
@@ -108,7 +182,75 @@ export class IcoSale implements Contract {
         await provider.internal(via, {
             value,
             sendMode: SendMode.PAY_GAS_SEPARATELY,
-            body: beginCell().endCell(),
+            body: Cell.EMPTY,
+        });
+    }
+
+    async sendSimpleBuy(provider: ContractProvider, via: Sender, value: bigint) {
+        await provider.internal(via, {
+            value,
+            sendMode: SendMode.PAY_GAS_SEPARATELY,
+            body: Cell.EMPTY,
+        });
+    }
+
+    async sendBuyRef(provider: ContractProvider, via: Sender, value: bigint, ref: Maybe<Address>) {
+        await provider.internal(via, {
+            value,
+            sendMode: SendMode.PAY_GAS_SEPARATELY,
+            body: beginCell().storeMaybeRef(ref ? beginCell().storeAddress(ref).endCell() : null).endCell(),
+        });
+    }
+
+    async sendOwnershipProof(provider: ContractProvider, via: Sender, value: bigint) {
+
+    }
+
+    static createEndSellMessage() {
+        return beginCell().storeUint(OpCodes.END_SALE, 32).endCell()
+    }
+
+    async sendEndSell(provider: ContractProvider, via: Sender, value: bigint) {
+        await provider.internal(via, {
+            value,
+            sendMode: SendMode.PAY_GAS_SEPARATELY,
+            body: IcoSale.createEndSellMessage(),
+        });
+    }
+
+    static createChangeOwnerMessage(args: {owner: Address, queryId?: number | bigint}) {
+        return beginCell().storeUint(OpCodes.CHANGE_OWNER, 32).storeUint(args.queryId ?? 0, 64).storeAddress(args.owner).endCell()
+    }
+
+    async sendChangeOwner(provider: ContractProvider, via: Sender, value: bigint, args: {owner: Address, queryId?: number | bigint}) {
+        await provider.internal(via, {
+            value,
+            sendMode: SendMode.PAY_GAS_SEPARATELY,
+            body: IcoSale.createChangeOwnerMessage(args),
+        });
+    }
+
+    static createPurchaseInfoMessage(args: {purchase: PurchaseConditionsRoot, queryId?: number | bigint}) {
+        return beginCell().storeUint(OpCodes.CHANGE_PURCHASE_INFO, 32).storeUint(args.queryId ?? 0, 64).storeRef(beginCell().store(storePurchaseConditionsRoot(args.purchase)).endCell()).endCell()
+    }
+
+    async sendPurchaseInfo(provider: ContractProvider, via: Sender, value: bigint, args: {purchase: PurchaseConditionsRoot, queryId?: number | bigint}) {
+        await provider.internal(via, {
+            value,
+            sendMode: SendMode.PAY_GAS_SEPARATELY,
+            body: IcoSale.createPurchaseInfoMessage(args),
+        });
+    }
+
+    static createAddRefAddressesMessage(args: {refs: Dictionary<Address, RefsDictValue>, queryId?: number | bigint}) {
+        return beginCell().storeUint(OpCodes.ADD_REF_ADDRESSES, 32).storeUint(args.queryId ?? 0, 64).storeDict(args.refs, AddressHashParser(), RefsDictValueParser()).endCell()
+    }
+
+    async sendAddRefAddresses(provider: ContractProvider, via: Sender, value: bigint, args: {refs: Dictionary<Address, RefsDictValue>, queryId?: number | bigint}) {
+        await provider.internal(via, {
+            value,
+            sendMode: SendMode.PAY_GAS_SEPARATELY,
+            body: IcoSale.createAddRefAddressesMessage(args),
         });
     }
 
