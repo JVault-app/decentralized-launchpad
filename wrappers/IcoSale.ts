@@ -77,15 +77,11 @@ export function IcoSaleConfigToCell(config: IcoSaleConfig): Cell {
             ) 
             .storeRef( 
                 beginCell()
-                .storeAddress(config.jettonRootAddress)
-                .storeAddress(config.nativeVaultAddress)
-                .storeAddress(config.jettonVaultAddress)
-                .storeRef(config.purchaseConditions)
-                .storeRef(config.commission_factors)
-                .endCell()
-            ) 
-            .storeRef( 
-                beginCell()
+                    .storeAddress(config.jettonRootAddress)
+                    .storeAddress(config.nativeVaultAddress)
+                    .storeAddress(config.jettonVaultAddress)
+                    .storeRef(config.purchaseConditions)
+                    .storeRef(config.commission_factors)
                     .storeCoins(config.minRefPurchase)
                     .storeUint(config.defaultCashback, 32)
                     .storeMaybeRef(config.refs_dict)
@@ -116,21 +112,65 @@ export class IcoSale implements Contract {
         });
     }
 
-    async sendSetWalletAddress(provider: ContractProvider, 
-        via: Sender,
-                walletAddress: Address,
-                queryId?: number) {
-        await provider.internal(
-            via, 
-            {
-                value: toNano('0.01'),
-                sendMode: SendMode.PAY_GAS_SEPARATELY,
-                body: beginCell()
-                        .storeUint(Opcodes.TAKE_WALLET_ADDRESS, 32)
-                        .storeUint(queryId ?? 0, 64)
-                        .storeAddress(walletAddress)
-                    .endCell()
-            }
-        )
+    async getJettonData(provider: ContractProvider) {
+        let res = await provider.get('get_jetton_data', []);
+        return {
+            totalSupply: res.stack.readBigNumber(),
+            mintable: res.stack.readBoolean(),
+            adminAddress: res.stack.readAddress(),
+            content: res.stack.readCell(),
+            walletCode: res.stack.readCell(),
+        }
     }
+
+    async getWalletAddress(provider: ContractProvider, owner: Address): Promise<Address> {
+        const res = await provider.get('get_wallet_address', [{ type: 'slice', cell: beginCell().storeAddress(owner).endCell() }])
+        return res.stack.readAddress()
+    }
+
+    async getStorageData(provider: ContractProvider) {
+        let res = await provider.get('get_storage_data', []);
+        
+        let collection_info = res.stack.readCell().asSlice();
+        let internal_ds = res.stack.readCell().asSlice();
+
+        return {
+            init: res.stack.readNumber(),
+            sale_start_time: res.stack.readNumber(),
+            saleEndTime: res.stack.readNumber(),
+
+            min_ton_collected: res.stack.readBigNumber(),
+            allocated_jettons: res.stack.readBigNumber(),
+            liquidity_part_ton: res.stack.readNumber(),
+            liquidity_part_jetton: res.stack.readNumber(),
+
+            ton_collected: res.stack.readBigNumber(),
+            jettons_sold: res.stack.readBigNumber(),
+
+            first_unlock_time: res.stack.readNumber(),
+            first_unlock_size: res.stack.readNumber(),
+            cycle_length: res.stack.readNumber(),
+            cycles_number: res.stack.readNumber(),
+            
+            jetton_wallet_address: res.stack.readAddress(),
+            jettons_added: res.stack.readNumber(),
+            sale_finished: res.stack.readNumber(),
+
+            admin_address: collection_info.loadAddress(),
+            owner_address: collection_info.loadAddress(),
+            content: collection_info.loadRef(),
+            sbt_item_code: collection_info.loadRef(),
+
+            jetton_root_address: internal_ds.loadAddress(),
+            native_vault_address: internal_ds.loadAddress(),
+            jetton_vault_address: internal_ds.loadAddress(),
+            purchase_conditions: internal_ds.loadRef(),
+            commission_factors: internal_ds.loadRef(),
+            min_ref_purchase: internal_ds.loadCoins(),
+            default_cashback: internal_ds.loadUint(32),
+            refs_dict: internal_ds.loadMaybeRef(),
+            ref_wallet_code: internal_ds.loadRef(),
+        };
+    }
+
 }

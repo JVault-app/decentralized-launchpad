@@ -541,6 +541,7 @@ slice get_wallet_address(slice owner_address) method_id {
 }
 
 
+
 ;; ;; SBT
 ;;
 ;; (int, cell, slice) get_collection_data() method_id {
@@ -610,34 +611,50 @@ slice get_wallet_address(slice owner_address) method_id {
 ;; }
 
 
-;; (int, slice, slice, cell, cell, cell, cell, cell, int, int, int, int, int, int, int, int, int, int, slice) get_storage_data() method_id {
-;;     load_data();
+(int, slice, slice, cell, cell, cell, cell, int, int, cell, cell, int, int, 
+ int, int, int, int, int, int, int, int, int, int, slice, slice, slice, slice, int, int, int) get_storage_data() method_id {
+    load_data();
     
-;;     return (
-;;         storage::init?,
+    return (
+         storage::init?,
 
-;;         storage::admin_address,      
-;;         storage::owner_address,           
-;;         storage::content, 
-;;         storage::sbt_item_code,
-;;         storage::commission_conditions,
+        storage::admin_address,         ;; Launchpad (royalty) address  (MsgAddress)
+        storage::owner_address,         ;; owner address (MsgAddress)
+        storage::content,               ;; collection content (Cell)
+        storage::sbt_item_code,         ;; NFT code (Cell)
 
-;;         storage::purchase_conditions,   
-;;         storage::ref_conditions,
+        storage::purchase_conditions,   ;; Cell with purchases conditions for different WL lvls (Cell)
+        storage::commission_factors,    ;; Hashmap. Key = minimum collected ton (uint128), Value = commission factor (uint32)
 
-;;         storage::sale_start_time,         
-;;         storage::sale_end_time,         
-;;         storage::allocated_jettons,      
-        
-;;         storage::ton_collected,          
-;;         storage::jettons_sold,           
+        storage::default_cashback,      ;; cashback factor for default users (uint32)
 
-;;         storage::first_unlock_time,      
-;;         storage::first_unlock_size,      
-;;         storage::cycle_length,          
-;;         storage::cycles_number,         
+        storage::min_ref_purchase,      ;; minimum purchase volume to get ref code (Coins)
+        storage::refs_dict,             ;; HashmapE. Key = ref_address (uint256), Value = slice(cashback_factor(uint32), discount_factor_factor(uin32));
+        storage::ref_wallet_code,       ;; Code of the ref_wallet smart contract (Cell)
 
-;;         storage::allocated_jettons,     
-;;         storage::jetton_wallet_address
-;;     );
-;; }
+        storage::sale_start_time,       ;; time of the start of sale  (uint32)
+        storage::sale_end_time,         ;; time of the end of sale  (uint32)
+
+        storage::min_ton_collected,     ;; minimum amount of collected TON for successful finish (Coins)
+        storage::allocated_jettons,     ;; total allocated for sale and liquidity jettons (Coins)
+        storage::liquidity_part_ton,    ;; Percent of collected TON allocated for liquidity, all the remaining TON will go to founder (uint32)
+        storage::liquidity_part_jetton, ;; Percent of jettons allocated for liquidity, remaining will be sold (uint32)
+
+        storage::ton_collected,         ;; amount of collected TON (Coins)
+        storage::jettons_sold,          ;; amount of sold jettons (Coins)
+
+        storage::first_unlock_time,     ;; time of first unlock in seconds (uint32)
+        storage::first_unlock_size,     ;; percent of tokens unlocked at first (uint32)
+        storage::cycle_length,          ;; time between unlocks in seconds (uint32)
+        storage::cycles_number,         ;; number of unlocks excluding initial (uint16)
+
+        storage::jetton_root_address,   ;; jetton root address (MsgAddress)
+        storage::native_vault_address,  ;; native vault address (MsgAddress)
+        storage::jetton_vault_address,  ;; jetton vault address (MsgAddress)
+
+        storage::jetton_wallet_address, ;; jetton wallet address of this smc (MsgAddress)
+        storage::jettons_added?,        ;; Were jettons added to smart contract? (uint1)
+        storage::sale_finished?,        ;; Were collected TON sent to recipients? (uint1)
+        jettons_for_sale
+    );
+}
