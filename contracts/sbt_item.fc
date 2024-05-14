@@ -113,6 +113,7 @@ global int   storage::refund_requested;
             storage::claimed_times      = 0;
             
             storage::first_unlock_time  = in_msg_body~load_uint(32);
+            storage::first_unlock_size  = in_msg_body~load_uint(32);
             storage::cycle_length       = in_msg_body~load_uint(32);
             storage::cycles_number      = in_msg_body~load_uint(16);
             storage::ref_data           = in_msg_body~load_dict();
@@ -142,16 +143,16 @@ global int   storage::refund_requested;
                 storage::purchased_jettons += new_purchased_jettons;
                 save_data();
             }
-
-            ;; notify buyer
-            builder msg_body = begin_cell()
-                                    .store_uint(op::transfer_notification, 32)
-                                    .store_uint(query_id, 64)
-                                    .store_coins(new_purchased_jettons)
-                                    .store_slice(storage::collection_address)
-                                    .store_uint(0, 1);
-            send_builder_message(storage::owner_address, 1, msg_body, mode::pay_fees_separately);
         }
+
+        ;; notify buyer
+        builder msg_body = begin_cell()
+                                .store_uint(op::transfer_notification, 32)
+                                .store_uint(query_id, 64)
+                                .store_coins(new_purchased_jettons)
+                                .store_slice(storage::collection_address)
+                                .store_uint(0, 1);
+        send_builder_message(storage::owner_address, 1, msg_body, mode::pay_fees_separately);
 
         return ();
     }

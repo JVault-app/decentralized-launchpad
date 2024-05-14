@@ -13,7 +13,9 @@ global cell  storage::sbt_item_code;           ;; NFT code (Cell)
 global cell  storage::purchase_conditions;     ;; Cell with purchases conditions for different WL lvls (Cell)
 global cell  storage::commission_factors;      ;; Hashmap. Key = minimum collected ton (uint128), Value = commission factor (uint32)
 
+global int   storage::default_discount;        ;; discount factor for default users (uint32)
 global int   storage::default_cashback;        ;; cashback factor for default users (uint32)
+
 global int   storage::min_ref_purchase;        ;; minimum purchase volume to get ref code (Coins)
 global cell  storage::refs_dict;               ;; HashmapE. Key = ref_address (uint256), Value = slice(cashback_factor(uint32), discount_factor_factor(uin32));
 global cell  storage::ref_wallet_code;         ;; Code of the ref_wallet smart contract (Cell)
@@ -22,7 +24,7 @@ global int   storage::sale_start_time;         ;; time of the start of sale  (ui
 global int   storage::sale_end_time;           ;; time of the end of sale  (uint32)
 
 global int   storage::min_ton_collected;       ;; minimum amount of collected TON for successful finish (Coins)
-global int   storage::allocated_jettons;       ;; maximum amount of sold jettons (Coins)
+global int   storage::allocated_jettons;       ;; total allocated for sale and liquidity jettons (Coins)
 global int   storage::liquidity_part_ton;      ;; Percent of collected TON allocated for liquidity, all the remaining TON will go to founder (uint32)
 global int   storage::liquidity_part_jetton;   ;; Percent of jettons allocated for liquidity, remaining will be sold (uint32)
 
@@ -47,7 +49,7 @@ global int jettons_for_sale;
 
 
 () load_data() impure inline {
-    slice ds = get_data().begin_parse(); ;; data: 1 + 32 + 32 + 128 + 128 + 32 + 32 + 128 + 128 + 32 + 16 + 32 + 16 + 267 + 1 + 1 = 1006
+    slice ds = get_data().begin_parse(); ;; data: 1 + 32 + 32 + 128 + 128 + 32 + 32 + 128 + 128 + 32 + 32 + 32 + 16 + 267 + 1 + 1 = 1022
                                          ;; refs: collection_info + internal_ds + ref_conditions = 3
     
     storage::init?                 = ds~load_int(1);
@@ -64,7 +66,7 @@ global int jettons_for_sale;
     storage::jettons_sold          = ds~load_coins();
 
     storage::first_unlock_time     = ds~load_uint(32);
-    storage::first_unlock_size     = ds~load_uint(16);
+    storage::first_unlock_size     = ds~load_uint(32);
     storage::cycle_length          = ds~load_uint(32);
     storage::cycles_number         = ds~load_uint(16);
 
@@ -85,8 +87,9 @@ global int jettons_for_sale;
     storage::purchase_conditions   = internal_ds~load_ref();
     storage::commission_factors    = internal_ds~load_ref();
     
-    slice ref_conditions           = ds~load_ref().begin_parse(); ;; data: 128 + 32 + 1 = 161; refs: refs_dict + ref_wallet_code = 2
+    slice ref_conditions           = ds~load_ref().begin_parse(); ;; data: 128 + 32 + 32 + 1 = 193; refs: refs_dict + ref_wallet_code = 2
     storage::min_ref_purchase      = ref_conditions~load_coins();
+    storage::default_discount      = ref_conditions~load_uint(32);
     storage::default_cashback      = ref_conditions~load_uint(32);
     storage::refs_dict             = ref_conditions~load_dict();
     storage::ref_wallet_code       = ref_conditions~load_ref(); 
@@ -112,7 +115,7 @@ global int jettons_for_sale;
             .store_coins(storage::jettons_sold)
 
             .store_uint(storage::first_unlock_time, 32)
-            .store_uint(storage::first_unlock_size, 16)
+            .store_uint(storage::first_unlock_size, 32)
             .store_uint(storage::cycle_length, 32)
             .store_uint(storage::cycles_number, 16)
             
@@ -140,6 +143,7 @@ global int jettons_for_sale;
             .store_ref( ;; ref_conditions
                 begin_cell()
                     .store_coins(storage::min_ref_purchase)
+                    .store_uint(storage::default_discount, 32)
                     .store_uint(storage::default_cashback, 32)
                     .store_dict(storage::refs_dict)
                     .store_ref(storage::ref_wallet_code)
@@ -210,7 +214,7 @@ builder store_pool_params_native_jetton(builder b, int jetton_root_workchain, in
                             .store_coins(msg_value)
                             .store_coins(max_purchase_ton)
                             .store_uint(storage::first_unlock_time, 32)
-                            .store_uint(storage::first_unlock_size, 16)
+                            .store_uint(storage::first_unlock_size, 32)
                             .store_uint(storage::cycle_length, 32)
                             .store_uint(storage::cycles_number, 16);
     if (cashback_factor) {
@@ -310,6 +314,7 @@ builder store_pool_params_native_jetton(builder b, int jetton_root_workchain, in
             cashback_factor = refs_conditions~load_uint(32);
         }
         else {  ;; default conditions
+            discount_factor = storage::default_discount;
             cashback_factor = storage::default_cashback; 
         }
         ref_address = get_address_by_state_init(calculate_ref_wallet_state_init(from_address, storage::ref_wallet_code, storage::sale_end_time  ));

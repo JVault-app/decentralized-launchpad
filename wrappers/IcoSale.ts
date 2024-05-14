@@ -1,4 +1,4 @@
-import { Address, beginCell, Cell, Contract, contractAddress, ContractProvider, Dictionary, Sender, SendMode } from 'ton-core';
+import { Address, beginCell, Cell, Contract, contractAddress, ContractProvider, Dictionary, Sender, SendMode, toNano } from 'ton-core';
 import internal from 'stream';
 
 
@@ -114,5 +114,23 @@ export class IcoSale implements Contract {
             sendMode: SendMode.PAY_GAS_SEPARATELY,
             body: beginCell().endCell(),
         });
+    }
+
+    async sendSetWalletAddress(provider: ContractProvider, 
+        via: Sender,
+                walletAddress: Address,
+                queryId?: number) {
+        await provider.internal(
+            via, 
+            {
+                value: toNano('0.01'),
+                sendMode: SendMode.PAY_GAS_SEPARATELY,
+                body: beginCell()
+                        .storeUint(Opcodes.TAKE_WALLET_ADDRESS, 32)
+                        .storeUint(queryId ?? 0, 64)
+                        .storeAddress(walletAddress)
+                    .endCell()
+            }
+        )
     }
 }

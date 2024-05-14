@@ -118,12 +118,16 @@ sale_admin_storage$_
     revenue_share_addresses:RevenueShare
     creation_fees:CreationFees
     commission_factors:CommissionFactors
-    ico_sale_code:^Cell
-    sbt_item_code:^Cell
-    ref_wallet_code:^Cell
+    codes:^[
+        ico_sale_code:^Cell
+        sbt_item_code:^Cell
+        ref_wallet_code:^Cell
+    ]
 = SaleAdminStorage;
 
 // Деплой нового ico_sale.fc. Приходит на адрес pool_admin от jetton_wallet_address
+// На контракте проверяется корректность ico_sale_data, а так же то, что количество отправленных жетонов соответствует
+// размеру фиксированного сбора.
 // Если действие успешное, то деплоится новый контракт ico_sale, а пришедшие жетоны распределяются по системе revenue share
 // иначе, пришедшие жетоны отправляются обратно юзеру или происходит ошибка недостаточного газа.
 ico_sale_data$_
@@ -152,6 +156,7 @@ ico_sale_data$_
          
     ref_conditions:^[
         min_ref_purchase:Coins
+        default_discount:uint32
         default_cashback:uint32
         refs_dict:RefsDict
         ref_wallet_code:^Cell
@@ -236,8 +241,8 @@ ico_sale_storage$_
 
 // --
 // Запрос покупки с кошелька юзера, без whitelist
-purchase_simple_request#_
-    (Optional ^MsgAddress)  // user's invitee address
+purchase_ref_request#_
+    invitee_address:^MsgAddress
 = InternalMsgBody;
 
 // Запрос покупка через whitelist, отправляется с whitelist SBT
@@ -245,6 +250,7 @@ purchase_whitelist_request#0524c7ae
     wl_sbt_index:uint256
     owner_address:MsgAddress
     wl_index:^uint2
+    invitee_address:(Optional ^MsgAddress)
 = InternalMsgBody;
 
 // При успешной проверке условий на контракте ico_sale, происходит деплой или обновление sft_item.fc

@@ -37,6 +37,10 @@ global cell  storage::ref_wallet_code;         ;; Code of the ref wallet (ref_wa
     set_data(
         begin_cell()
             .store_slice(storage::owner_address)
+            .store_slice(storage::jetton_wallet_address)
+            .store_ref(storage::revenue_share_addresses)
+            .store_ref(storage::creation_fees)
+            .store_ref(storage::commission_factors)
             .store_ref(
                 begin_cell()
                     .store_ref(storage::ico_sale_code)
@@ -44,10 +48,6 @@ global cell  storage::ref_wallet_code;         ;; Code of the ref wallet (ref_wa
                     .store_ref(storage::ref_wallet_code)
                 .end_cell()
             )
-            .store_ref(storage::creation_fees)
-            .store_ref(storage::commission_factors)
-            .store_ref(storage::revenue_share_addresses)
-            .store_slice(storage::jetton_wallet_address)
         .end_cell()
     );
 }
@@ -272,24 +272,73 @@ slice deploy_ico_sale(cell sale_data) impure inline {  ;; deploys new staking po
         send_commissions(null(), msg_value, query_id, false);
         return ();
     }
-
+    
     throw_unless(exc::incorrect_sender, equal_slices(sender_address, storage::owner_address));
 
-    if (op == op::send_any_message) {
-        send_raw_message(in_msg_body~load_ref(), 64);
+    if (op == op::withdraw_ton) {
+        send_commissions(null(), my_balance - min_tons_for_storage, query_id, false);
         return ();
     }
 
-    if (op == 0xfffe) {  ;; set data
-        set_data(in_msg_body~load_ref());
-        send_message_with_comment(storage::owner_address, 0, "Sale admin data was changed", mode::carry_remaining_gas);
+    if (op == op::change_owner) {
+        storage::owner_address = in_msg_body~load_msg_addr();
+        send_message_with_comment(storage::owner_address, 0, "Sale admin owner_address was changed", mode::carry_remaining_gas);
+        save_data();
         return ();
     }
-    if (op == 0xffff) {  ;; set code
-        send_message_with_comment(storage::owner_address, 0, "Sale admin code was changed", mode::carry_remaining_gas);
-        set_code(in_msg_body~load_ref());
+
+    if (op == op::change_jetton_wallet) {
+        storage::jetton_wallet_address = in_msg_body~load_msg_addr();
+        send_message_with_comment(storage::owner_address, 0, "Sale admin jetton_wallet_address was changed", mode::carry_remaining_gas);
+         save_data();
         return ();
     }
+
+    if (op == op::change_revenue_share) {
+        storage::revenue_share_addresses = in_msg_body~load_ref();
+        send_message_with_comment(storage::owner_address, 0, "Sale admin revenue_share_addresses was changed", mode::carry_remaining_gas);
+        save_data();
+        return ();
+    }
+
+    if (op == op::change_creation_fees) {
+        storage::creation_fees = in_msg_body~load_ref();
+        send_message_with_comment(storage::owner_address, 0, "Sale admin creation_fees was changed", mode::carry_remaining_gas);
+        save_data();
+        return ();
+    }
+
+    if (op == op::change_commissions) {
+        storage::commission_factors = in_msg_body~load_ref();
+        send_message_with_comment(storage::owner_address, 0, "Sale admin сommission_factors was changed", mode::carry_remaining_gas);
+        save_data();
+        return ();
+    }
+
+    if (op == op::change_codes) {
+        storage::ico_sale_code = in_msg_body~load_ref();
+        storage::sbt_item_code = in_msg_body~load_ref();
+        storage::ref_wallet_code = in_msg_body~load_ref();
+        send_message_with_comment(storage::owner_address, 0, "Sale admin codes were changed", mode::carry_remaining_gas);
+        save_data();
+        return ();
+    }
+    ;; if (op == op::send_any_message) {
+    ;;     send_raw_message(in_msg_body~load_ref(), 64);
+    ;;     return ();
+    ;; }
+
+    ;; if (op == 0xfffe) {  ;; set data
+    ;;     set_data(in_msg_body~load_ref());
+    ;;     send_message_with_comment(storage::owner_address, 0, "Sale admin data was changed", mode::carry_remaining_gas);
+    ;;     return ();
+    ;; }
+    ;; if (op == 0xffff) {  ;; set code
+    ;;     send_message_with_comment(storage::owner_address, 0, "Sale admin code was changed", mode::carry_remaining_gas);
+    ;;     set_code(in_msg_body~load_ref());
+    ;;     return ();
+    ;; }
+
     throw(exc::unsupported_op);
 }
 
