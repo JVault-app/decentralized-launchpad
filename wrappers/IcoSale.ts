@@ -17,10 +17,10 @@ export type PurchaseConditionsRoot = {
     priceDevider: bigint
     minPurchaseTon: bigint
     maxPurchaseTon: bigint
-    wlCondition1: Maybe<PurchaseConditionsWhitelist>
-    wlCondition2: Maybe<PurchaseConditionsWhitelist>
-    wlCondition3: Maybe<PurchaseConditionsWhitelist>
-    wlCondition4: Maybe<PurchaseConditionsWhitelist>
+    wlCondition1?: Maybe<PurchaseConditionsWhitelist>
+    wlCondition2?: Maybe<PurchaseConditionsWhitelist>
+    wlCondition3?: Maybe<PurchaseConditionsWhitelist>
+    wlCondition4?: Maybe<PurchaseConditionsWhitelist>
 }
 
 export function storePurchaseConditionsWhitelist(src: PurchaseConditionsWhitelist) {
