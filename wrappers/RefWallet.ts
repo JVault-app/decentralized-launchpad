@@ -36,13 +36,15 @@ export class RefWallet implements Contract {
         });
     }
 
-    async getWalletData(provider: ContractProvider) {
+    async getStorageData(provider: ContractProvider) {
         let { stack } = await provider.get('get_wallet_data', []);
         return {
-            balance: stack.readBigNumber(),
-            owner: stack.readAddress(),
-            minter: stack.readAddress(),
-            wallet_code: stack.readCell()
+            init: stack.readNumber(),
+            owner_address: stack.readAddress(),
+            collection_address: stack.readAddress(),
+            sale_end_time: stack.readNumber(),
+            collected_ton: stack.readBigNumber(),
         }
     }
+
 }

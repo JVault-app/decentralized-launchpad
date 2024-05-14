@@ -50,4 +50,17 @@ export class SaleAdmin implements Contract {
             body: beginCell().endCell(),
         });
     }
+    async getStorageData(provider: ContractProvider) {
+        let { stack } = await provider.get('get_wallet_data', []);
+        return {
+            owner_address: stack.readAddress(),
+            jetton_wallet_address: stack.readAddress(),
+            revenue_share_addresses: stack.readCell(),
+            creation_fees: stack.readCell(),
+            commission_factors: stack.readCell(),
+            ico_sale_code: stack.readCell(),
+            sbt_item_code: stack.readCell(),
+            ref_wallet_code: stack.readCell()
+        }
+    }
 }

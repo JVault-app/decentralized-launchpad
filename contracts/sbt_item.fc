@@ -121,6 +121,8 @@ global int   storage::refund_requested;
         }
         else {
             storage::collected_ton += new_collected_ton;
+            storage::purchased_jettons += new_purchased_jettons;
+
             if (storage::collected_ton > max_collected_ton) {
                 cell msg_body = begin_cell()
                                     .store_uint(op::cancel_purchase, 32)
@@ -139,8 +141,6 @@ global int   storage::refund_requested;
                                         .store_coins(new_collected_ton)
                                         .store_dict(storage::ref_data);
                 send_builder_message(storage::collection_address, 0, msg_body, mode::carry_remaining_gas);
-
-                storage::purchased_jettons += new_purchased_jettons;
                 save_data();
             }
         }
@@ -303,15 +303,15 @@ cell my_code() asm "MYCODE";
     return (storage::purchased_jettons - claimed_jettons, storage::owner_address, storage::collection_address, my_code());
 }
 
-slice get_authority_address() method_id {
-    load_data();
-    return storage::authority_address;
-}
+;; slice get_authority_address() method_id {
+;;     load_data();
+;;     return storage::authority_address;
+;; }
 
-int get_revoked_time() method_id {
-    load_data();
-    return storage::revoked_at;
-}
+;; int get_revoked_time() method_id {
+;;     load_data();
+;;     return storage::revoked_at;
+;; }
 
 
 (int, slice, int, int, int, int, int, int, int, cell) get_storage_data() method_id {

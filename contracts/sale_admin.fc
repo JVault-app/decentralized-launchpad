@@ -341,3 +341,19 @@ slice deploy_ico_sale(cell sale_data) impure inline {  ;; deploys new staking po
 
 ;; GET methods
 
+(slice, slice, cell, cell, cell, cell, cell, cell) get_storage_data() {
+    load_data();
+
+    return (
+        storage::owner_address,
+        storage::jetton_wallet_address,
+        storage::revenue_share_addresses,
+
+        storage::creation_fees,
+        storage::commission_factors,
+        
+        storage::ico_sale_code,
+        storage::sbt_item_code,
+        storage::ref_wallet_code
+    );
+}

@@ -57,4 +57,30 @@ export class SbtNft implements Contract {
             body: SbtItemMessageConfigToCell(msgConfig),
         });
     }
+
+    async getWalletData(provider: ContractProvider) {
+        let { stack } = await provider.get('get_wallet_data', []);
+        return {
+            balance: stack.readBigNumber(),
+            owner: stack.readAddress(),
+            minter: stack.readAddress(),
+            wallet_code: stack.readCell()
+        }
+    }
+
+    async getStorageData(provider: ContractProvider) {
+        let { stack } = await provider.get('get_wallet_data', []);
+        return {
+            index: stack.readNumber(),
+            owner_address: stack.readAddress(),
+            purchased_jettons: stack.readBigNumber(),
+            collected_ton: stack.readBigNumber(),
+            claimed_times: stack.readNumber(),
+            first_unlock_time: stack.readNumber(),
+            first_unlock_size: stack.readNumber(),
+            cycle_length: stack.readNumber(),
+            cycles_number: stack.readNumber(),
+            ref_data: stack.readCell(),
+        }
+    }
 }

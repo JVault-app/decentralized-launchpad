@@ -106,19 +106,14 @@ global int   storage::collected_ton;
 ;; }
 
 
-;; (int, slice, int, int, int, int, int, int, int, cell) get_storage_data() method_id {
-;;     load_data();
+(int, slice, slice, int, int) get_storage_data() method_id {
+    load_data();
 
-;;     return (
-;;         storage::index,
-;;         storage::owner_address,
-;;         storage::purchased_jettons,
-;;         storage::collected_ton,
-;;         storage::claimed_times,
-;;         storage::first_unlock_time,
-;;         storage::first_unlock_size,
-;;         storage::cycle_length,
-;;         storage::cycles_number,
-;;         storage::ref_data
-;;     );      
-;; }
+    return (
+        storage::init?,
+        storage::owner_address,
+        storage::collection_address,
+        storage::sale_end_time,
+        storage::collected_ton
+    );      
+}
