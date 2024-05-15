@@ -342,6 +342,16 @@ builder store_pool_params_native_jetton(builder b, int jetton_root_workchain, in
     int query_id = in_msg_body.slice_empty?() ? cur_lt() : in_msg_body~load_uint(64);
 
     ifnot (storage::init?) {
+            ;; set jetton wallet address (used only once)
+        if (op == op::take_wallet_address) {
+            throw_if(exc::already_inited, storage::init?);  
+            throw_unless(exc::incorrect_sender, equal_slices(sender_address, storage::jetton_root_address));
+            storage::init? = true;
+            storage::jetton_wallet_address = in_msg_body~load_msg_addr();
+
+            save_data();
+            return ();
+        }
         throw_unless(exc::incorrect_sender, equal_slices(sender_address, storage::admin_address));
 
         builder msg_body = begin_cell()
@@ -349,9 +359,8 @@ builder store_pool_params_native_jetton(builder b, int jetton_root_workchain, in
                             .store_uint(query_id, 64)
                             .store_slice(my_address())
                             .store_uint(0, 1);
-        send_builder_message(storage::jetton_wallet_address, gas::provide_addr, msg_body, mode::simple);
+        send_builder_message(storage::jetton_root_address, gas::provide_addr, msg_body, 1);
 
-        save_data();
         return ();
     }
     
@@ -441,17 +450,6 @@ builder store_pool_params_native_jetton(builder b, int jetton_root_workchain, in
 
         int ref_reward = in_msg_body~load_coins();
         send_message_with_comment(ref_owner_address, ref_reward, "Cashback from referrals on JVault launchpad", mode::simple);
-        return ();
-    }
-
-    ;; set jetton wallet address (used only once)
-    if (op == op::take_wallet_address) {
-        throw_if(exc::already_inited, storage::init?);  
-        throw_unless(exc::incorrect_sender, equal_slices(sender_address, storage::jetton_wallet_address));
-        storage::init? = true;
-        storage::jetton_wallet_address = in_msg_body~load_msg_addr();
-
-        save_data();
         return ();
     }
 
