@@ -16,6 +16,7 @@ global int   storage::revoked_at;
 global int   storage::purchased_jettons;    ;; total purchased tokens
 global int   storage::collected_ton;        ;; total collected ton
 global int   storage::claimed_times;        ;; number of unlocks withdrawed
+global int   storage::claimed_jettons;      ;; amount of claimed jettons
 global int   storage::first_unlock_time;    ;; timestamp of the first unlock
 global int   storage::first_unlock_size;    ;; size of the first unlock (in percents)
 global int   storage::cycle_length;         ;; time between unlocks in seconds
@@ -41,6 +42,7 @@ global int   storage::refund_requested;
         storage::purchased_jettons = ds~load_coins();
         storage::collected_ton     = ds~load_coins();
         storage::claimed_times     = ds~load_uint(16);
+        storage::claimed_jettons   = ds~load_coins();
         
         storage::first_unlock_time = ds~load_uint(32);
         storage::first_unlock_size = ds~load_uint(32);
@@ -62,6 +64,7 @@ global int   storage::refund_requested;
                 .store_coins(storage::purchased_jettons)
                 .store_coins(storage::collected_ton)
                 .store_uint(storage::claimed_times, 16)
+                .store_coins(storage::claimed_jettons)
                 .store_uint(storage::first_unlock_time, 32)
                 .store_uint(storage::first_unlock_size, 32)
                 .store_uint(storage::cycle_length, 32)
@@ -111,6 +114,7 @@ global int   storage::refund_requested;
             storage::purchased_jettons  = new_purchased_jettons;
             storage::collected_ton      = new_collected_ton;
             storage::claimed_times      = 0;
+            storage::claimed_jettons    = 0;
             
             storage::first_unlock_time  = in_msg_body~load_uint(32);
             storage::first_unlock_size  = in_msg_body~load_uint(32);
@@ -166,8 +170,15 @@ global int   storage::refund_requested;
         if (storage::claimed_times == 0) {
             available_percent += storage::first_unlock_size;
         }
-        int available_jettons = muldiv(storage::purchased_jettons, available_percent, percent_devider);
 
+        int available_jettons = 0;
+        if (total_unlocks == storage::cycles_number + 1) {
+            available_jettons = storage::purchased_jettons - storage::claimed_jettons;
+        }
+        else {
+            available_jettons = muldiv(storage::purchased_jettons, available_percent, percent_devider);
+        }
+        
         throw_unless(exc::nothing_to_claim, available_jettons);
 
         builder msg_body = begin_cell()
@@ -178,6 +189,7 @@ global int   storage::refund_requested;
         send_builder_message(storage::collection_address, 0, msg_body, mode::carry_remaining_gas);
 
         storage::claimed_times = total_unlocks; 
+        storage::claimed_jettons += available_jettons;
         save_data();
         return ();
     }
@@ -314,7 +326,7 @@ cell my_code() asm "MYCODE";
 ;; }
 
 
-(int, slice, int, int, int, int, int, int, int, cell) get_storage_data() method_id {
+(int, slice, int, int, int, int, int, int, int, int, cell) get_storage_data() method_id {
     load_data();
 
     return (
@@ -323,6 +335,7 @@ cell my_code() asm "MYCODE";
         storage::purchased_jettons,
         storage::collected_ton,
         storage::claimed_times,
+        storage::claimed_jettons,
         storage::first_unlock_time,
         storage::first_unlock_size,
         storage::cycle_length,

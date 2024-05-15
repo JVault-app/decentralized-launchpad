@@ -93,6 +93,7 @@ export class SbtNft implements Contract {
             purchased_jettons: stack.readBigNumber(),
             collected_ton: stack.readBigNumber(),
             claimed_times: stack.readNumber(),
+            claimed_jettons: stack.readBigNumber(),
             first_unlock_time: stack.readNumber(),
             first_unlock_size: stack.readNumber(),
             cycle_length: stack.readNumber(),

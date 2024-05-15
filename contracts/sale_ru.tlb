@@ -259,6 +259,7 @@ sft_item_storage$_
     purchased_jettons:Coins
     collected_ton:Coins
     claimed_times:uint16  // 0 when deploy
+    claimed_jettons:Coins  // 0 when deploy
     first_unlock_time:uint32
     first_unlock_size:uint32
     cycle_length:uint32
