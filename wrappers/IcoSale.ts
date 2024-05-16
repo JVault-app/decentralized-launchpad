@@ -90,7 +90,7 @@ export type IcoSaleConfig = {
     cycleLength: number;
     cyclesNumber: number;
 
-    jettonWalletAddress: Address;
+    jettonWalletAddress?: Address;
 
     adminAddress: Address;
     ownerAddress: Address;
@@ -133,13 +133,13 @@ export function IcoSaleConfigToCell(config: IcoSaleConfig): Cell {
             .storeCoins(0)
 
             .storeUint(config.firstUnlockTime, 32)
-            .storeUint(config.firstUnlockSize, 16)
+            .storeUint(config.firstUnlockSize, 32)
             .storeUint(config.cycleLength, 32)
             .storeUint(config.cyclesNumber, 16)
             
             .storeAddress(config.jettonWalletAddress)
-            .storeBit(0)
-            .storeBit(0)
+            .storeBit(false)
+            .storeBit(false)
 
             .storeRef(
                 beginCell()
@@ -274,7 +274,22 @@ export class IcoSale implements Contract {
         let { stack } = await provider.get('get_storage_data', []);
 
         return {
-            init: stack.readNumber(),
+            init: stack.readBoolean(),
+
+            admin_address: stack.readAddress(),
+            owner_address: stack.readAddress(),
+            content: stack.readCell(),
+            sbt_item_code: stack.readCell(),
+
+            purchase_conditions: stack.readCell(),
+            commission_factors: stack.readCell(),
+
+            default_cashback: stack.readNumber(),
+
+            min_ref_purchase: stack.readBigNumber(),
+            refs_dict: stack.readCellOpt(),
+            ref_wallet_code: stack.readCell(),
+
             sale_start_time: stack.readNumber(),
             saleEndTime: stack.readNumber(),
 
@@ -290,25 +305,15 @@ export class IcoSale implements Contract {
             first_unlock_size: stack.readNumber(),
             cycle_length: stack.readNumber(),
             cycles_number: stack.readNumber(),
-            
-            jetton_wallet_address: stack.readAddress(),
-            jettons_added: stack.readNumber(),
-            sale_finished: stack.readNumber(),
-
-            admin_address: stack.readAddress(),
-            owner_address: stack.readAddress(),
-            content: stack.readCell(),
-            sbt_item_code: stack.readCell(),
 
             jetton_root_address: stack.readAddress(),
             native_vault_address: stack.readAddress(),
             jetton_vault_address: stack.readAddress(),
-            purchase_conditions: stack.readCell(),
-            commission_factors: stack.readCell(),
-            min_ref_purchase: stack.readBigNumber(),
-            default_cashback: stack.readNumber(),
-            refs_dict: stack.readCellOpt(),
-            ref_wallet_code: stack.readCell(),
+
+            jetton_wallet_address: stack.readAddressOpt(),
+            jettons_added: stack.readBoolean(),
+            sale_finished: stack.readBoolean(),
+            jettons_for_sale: stack.readBigNumber()
         };
     }
 

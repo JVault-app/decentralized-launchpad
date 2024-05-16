@@ -32,7 +32,7 @@ export function SbtItemMessageConfigToCell(config: SbtItemMessageConfig): Cell {
                 .storeCoins(config.newCollectedTon)
                 .storeCoins(config.maxCollectedTon)
                 .storeUint(config.firstUnlockTime, 32)
-                .storeUint(config.firstUnlockSize, 16)
+                .storeUint(config.firstUnlockSize, 32)
                 .storeUint(config.cycleLength, 32)
                 .storeUint(config.cyclesNumber, 16)
             .endCell();

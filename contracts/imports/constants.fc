@@ -99,7 +99,7 @@ const int exc::unsupported_op = 0xffff;
 const int min_tons_for_storage = 25000000;   
 const int gas::send_jettons    = 40000000;
 const int gas::burn_jettons    = 30000000;
-const int gas::provide_addr    = 10000000;
+const int gas::provide_addr    = 100000000;
 
 const int gas::deploy_ico_sale = 50000000;
 const int gas::deploy_sbt      = 50000000;
