@@ -208,7 +208,7 @@ ico_sale_storage$_
 
     collection_info:^[
         admin_address:MsgAddress
-        owner_address:MsgAddress
+        creator_address:MsgAddress
         content:^Cell
         sbt_item_code:^Cell
     ]
@@ -253,19 +253,22 @@ purchase_whitelist_request#0524c7ae
 // При успешной проверке условий на контракте ico_sale, происходит деплой или обновление sft_item.fc
 // storage:
 sft_item_storage$_
-    index:uint256  // owner address int
+    index:uint256  // requester  (wl_sbt or buyer) address int
     collection_address:MsgAddress
     content:^Cell
-    purchased_jettons:Coins
-    collected_ton:Coins
-    claimed_times:uint16  // 0 when deploy
-    claimed_jettons:Coins  // 0 when deploy
-    first_unlock_time:uint32
-    first_unlock_size:uint32
-    cycle_length:uint32
-    cycles_number:uint16
-    ref_data:(Maybe ^[ref_address:MsgAddress cashback_factor:uint32])
-    refund_requested:int1  // 0 when deploy
+    internal_ds:^[
+        buyer_address:MsgAddress
+        purchased_jettons:Coins
+        collected_ton:Coins
+        claimed_times:uint16  // 0 when deploy
+        claimed_jettons:Coins  // 0 when deploy
+        first_unlock_time:uint32
+        first_unlock_size:uint32
+        cycle_length:uint32
+        cycles_number:uint16
+        ref_data:(Maybe ^[ref_address:MsgAddress cashback_factor:uint32])
+        refund_requested:int1  // 0 when deploy
+    ]
 = SftItemStorage;
 
 update_sft_message#dca3da4c
@@ -273,6 +276,7 @@ update_sft_message#dca3da4c
     jettons_to_purchase:Coins
     collected_ton:Coins
     max_purchase_ton:Coins
+    buyer_address:MsgAddress
     first_unlock_time:uint32
     first_unlock_size:uint32
     cycle_length:uint32
@@ -395,9 +399,9 @@ sft_item_refund_request#1075d7a3
 // --
 // Так же, в контракте сейла можно менять некоторые параметры:
 // владелец:
-change_owner_request#93b05b31
+change_creator_request#93b05b31
     query_id:uint64
-    new_owner_address:MsgAddress
+    new_creator_address:MsgAddress
 = InternalMsgBody;
 // цена (на данный момент только до начала сейла):
 change_purchase_conditions_request#a7dd3e8d

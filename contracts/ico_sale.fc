@@ -6,7 +6,7 @@
 global int   storage::init?;
 
 global slice storage::admin_address;           ;; Launchpad (royalty) address  (MsgAddress)
-global slice storage::owner_address;           ;; owner address (MsgAddress)
+global slice storage::creator_address;           ;; owner address (MsgAddress)
 global cell  storage::content;                 ;; collection content (Cell)
 global cell  storage::sft_item_code;           ;; NFT code (Cell)
 
@@ -76,7 +76,7 @@ global int jettons_for_sale;
 
     slice collection_info          = ds~load_ref().begin_parse(); ;; data: 267 + 267 = 534; refs: content + sft_item_code = 2
     storage::admin_address         = collection_info~load_msg_addr();
-    storage::owner_address         = collection_info~load_msg_addr();
+    storage::creator_address         = collection_info~load_msg_addr();
     storage::content               = collection_info~load_ref();
     storage::sft_item_code         = collection_info~load_ref();
 
@@ -125,7 +125,7 @@ global int jettons_for_sale;
             .store_ref( ;; collection_info
                 begin_cell()
                     .store_slice(storage::admin_address)
-                    .store_slice(storage::owner_address)
+                    .store_slice(storage::creator_address)
                     .store_ref(storage::content)
                     .store_ref(storage::sft_item_code)
                 .end_cell()
@@ -266,7 +266,7 @@ builder store_pool_params_native_jetton(builder b, int jetton_root_workchain, in
 
     ;; Sale failed
     if (storage::ton_collected < storage::min_ton_collected) { 
-        send_jettons(query_id, storage::allocated_jettons, storage::owner_address, sender_address, storage::jetton_wallet_address,
+        send_jettons(query_id, storage::allocated_jettons, storage::creator_address, sender_address, storage::jetton_wallet_address,
                      gas::send_jettons, mode::simple, 0, begin_cell().store_uint(0, 32).store_slice("Unfortunately, your tokensale was unsuccessful").end_cell());   
     }
     ;; Sale succeed
@@ -286,7 +286,7 @@ builder store_pool_params_native_jetton(builder b, int jetton_root_workchain, in
         send_builder_message(storage::admin_address, ton_for_launchpad, begin_cell().store_uint(op::send_commissions, 32).store_uint(query_id, 64), mode::simple);
 
         int ton_for_founder = storage::ton_collected - ton_for_launchpad - ton_for_liquidity;
-        send_message_with_comment(storage::owner_address, ton_for_founder, "JVault Launchpad payout for ICO creator", mode::simple);
+        send_message_with_comment(storage::creator_address, ton_for_founder, "JVault Launchpad payout for ICO creator", mode::simple);
     }
 
     send_builder_message(sender_address, 0, begin_cell().store_uint(op::excesses, 32).store_uint(query_id, 64), mode::carry_remaining_balance);
@@ -479,7 +479,7 @@ builder store_pool_params_native_jetton(builder b, int jetton_root_workchain, in
         
         storage::jettons_added? = true;
         
-        send_builder_message(storage::owner_address, query_id, begin_cell().store_uint(op::excesses, 32).store_uint(query_id, 64), mode::carry_remaining_gas);
+        send_builder_message(storage::creator_address, query_id, begin_cell().store_uint(op::excesses, 32).store_uint(query_id, 64), mode::carry_remaining_gas);
         save_data();
         return ();
     }
@@ -488,9 +488,9 @@ builder store_pool_params_native_jetton(builder b, int jetton_root_workchain, in
     throw_unless(exc::incorrect_sender, equal_slices(sender_address, storage::admin_address));
 
     if (op == op::change_owner) {
-        storage::owner_address = in_msg_body~load_msg_addr();
+        storage::creator_address = in_msg_body~load_msg_addr();
 
-        send_builder_message(storage::owner_address, 0, begin_cell().store_uint(op::excesses, 32).store_uint(query_id, 64), mode::carry_remaining_gas);
+        send_builder_message(storage::creator_address, 0, begin_cell().store_uint(op::excesses, 32).store_uint(query_id, 64), mode::carry_remaining_gas);
         save_data();
         return ();
     }
@@ -500,7 +500,7 @@ builder store_pool_params_native_jetton(builder b, int jetton_root_workchain, in
         throw_unless(exc::already_started, now() < storage::sale_start_time);
         storage::purchase_conditions = in_msg_body~load_ref();
 
-        send_builder_message(storage::owner_address, 0, begin_cell().store_uint(op::excesses, 32).store_uint(query_id, 64), mode::carry_remaining_gas);
+        send_builder_message(storage::creator_address, 0, begin_cell().store_uint(op::excesses, 32).store_uint(query_id, 64), mode::carry_remaining_gas);
         save_data();
         return ();
     }
@@ -515,7 +515,7 @@ builder store_pool_params_native_jetton(builder b, int jetton_root_workchain, in
             (ref_address, ref_conditions, success) = new_addresses.udict_get_next?(256, ref_address);
         }
 
-        send_builder_message(storage::owner_address, 0, begin_cell().store_uint(op::excesses, 32).store_uint(query_id, 64), mode::carry_remaining_gas);
+        send_builder_message(storage::creator_address, 0, begin_cell().store_uint(op::excesses, 32).store_uint(query_id, 64), mode::carry_remaining_gas);
         save_data();
         return (); 
     }
@@ -529,7 +529,7 @@ builder store_pool_params_native_jetton(builder b, int jetton_root_workchain, in
 
 (int, int, slice, cell, cell) get_jetton_data() method_id {
     load_data();
-    return (storage::jettons_sold, storage::jettons_added? & (storage::jettons_sold <= jettons_for_sale) & (now() <= storage::sale_end_time), storage::owner_address, storage::content, storage::sft_item_code);
+    return (storage::jettons_sold, storage::jettons_added? & (storage::jettons_sold <= jettons_for_sale) & (now() <= storage::sale_end_time), storage::creator_address, storage::content, storage::sft_item_code);
 }
 
 
@@ -547,7 +547,7 @@ slice get_wallet_address(slice owner_address) method_id {
 ;; (int, cell, slice) get_collection_data() method_id {
 ;;     load_data();
 ;;     slice cs = storage::content.begin_parse();
-;;     return (uint_256_max, cs~load_ref(), storage::owner_address);
+;;     return (uint_256_max, cs~load_ref(), storage::creator_address);
 ;; }
 
 
@@ -619,7 +619,7 @@ slice get_wallet_address(slice owner_address) method_id {
          storage::init?,
 
         storage::admin_address,         ;; Launchpad (royalty) address  (MsgAddress)
-        storage::owner_address,         ;; owner address (MsgAddress)
+        storage::creator_address,         ;; owner address (MsgAddress)
         storage::content,               ;; collection content (Cell)
         storage::sft_item_code,         ;; NFT code (Cell)
 
