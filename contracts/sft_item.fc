@@ -9,7 +9,6 @@ global int   storage::index;
 global int   storage::init?;
 global slice storage::collection_address;
 global slice storage::buyer_address;
-global cell  storage::content;
 
 ;; Custom
 global int   storage::purchased_jettons;    ;; total purchased tokens
@@ -34,7 +33,6 @@ global int   storage::refund_requested;
     if (ds.slice_bits() > 0) {
         storage::init?             = true;
         storage::buyer_address     = ds~load_msg_addr();
-        storage::content           = ds~load_ref();
 
         slice internal_ds = ds~load_ref().begin_parse();
         storage::purchased_jettons = internal_ds~load_coins();
@@ -59,7 +57,6 @@ global int   storage::refund_requested;
                 .store_uint(storage::index, 256) 
                 .store_slice(storage::collection_address)
                 .store_slice(storage::buyer_address)
-                .store_ref(storage::content)
                 .store_ref(
                     begin_cell()
                         .store_coins(storage::purchased_jettons)
@@ -247,7 +244,7 @@ global int   storage::refund_requested;
                     .store_uint(with_content, 1);
 
         if (with_content != 0) {
-            msg = msg.store_ref(storage::content);
+            msg = msg.store_ref(begin_cell().end_cell());
         }
 
         send_cell_message(dest, 0, msg.end_cell(), mode::carry_remaining_gas);
@@ -271,7 +268,7 @@ global int   storage::refund_requested;
                     .store_uint(with_content, 1);
 
         if (with_content != 0) {
-            msg = msg.store_ref(storage::content);
+            msg = msg.store_ref(begin_cell().end_cell());
         }
 
         send_cell_message(dest, 0, msg.end_cell(), mode::carry_remaining_gas);

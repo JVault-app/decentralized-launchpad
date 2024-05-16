@@ -255,7 +255,6 @@ purchase_whitelist_request#0524c7ae
 sft_item_storage$_
     index:uint256  // requester  (wl_sbt or buyer) address int
     collection_address:MsgAddress
-    content:^Cell
     internal_ds:^[
         buyer_address:MsgAddress
         purchased_jettons:Coins
