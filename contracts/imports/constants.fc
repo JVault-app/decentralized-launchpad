@@ -40,7 +40,7 @@ const int op::get_royalty_params      = 0x693d3950;
 const int op::report_royalty_params   = 0xa8cb00ad;
 const int op::claim                   = 0xa769de27;
 const int op::request_refund          = 0x1075d7a3;
-const int op::update_sbt_data         = 0xdca3da4c;
+const int op::update_sft_data         = 0xdca3da4c;
 const int op::end_sale                = 0xcb81bc08;
 
 ;; ref wallet
@@ -102,7 +102,7 @@ const int gas::burn_jettons    = 30000000;
 const int gas::provide_addr    = 100000000;
 
 const int gas::deploy_ico_sale = 50000000;
-const int gas::deploy_sbt      = 50000000;
+const int gas::deploy_sft      = 50000000;
 const int gas::deploy_ref      = 50000000;
 
 const int gas::purchase        = 20000000;

@@ -12,7 +12,7 @@ global cell  storage::creation_fees;           ;; Hashmap. Key = maximum collect
 global cell  storage::commission_factors;      ;; Hashmap. Key = minimum collected TON (uint128), Value = commission_factor (uint32)
 
 global cell  storage::ico_sale_code;           ;; Code of the ico (ico_sale.fc) smart-contract. (Cell)
-global cell  storage::sbt_item_code;           ;; Code of the ico bond SBT item (sbt_item.fc) smart-contract. (Cell)
+global cell  storage::sft_item_code;           ;; Code of the ico bond SBT item (sft_item.fc) smart-contract. (Cell)
 global cell  storage::ref_wallet_code;         ;; Code of the ref wallet (ref_wallet.fc) smart-contract (Cell)
 
 
@@ -28,7 +28,7 @@ global cell  storage::ref_wallet_code;         ;; Code of the ref wallet (ref_wa
 
     slice codes = ds~load_ref().begin_parse();
     storage::ico_sale_code   = codes~load_ref();
-    storage::sbt_item_code   = codes~load_ref();
+    storage::sft_item_code   = codes~load_ref();
     storage::ref_wallet_code = codes~load_ref();
 }   
 
@@ -44,7 +44,7 @@ global cell  storage::ref_wallet_code;         ;; Code of the ref wallet (ref_wa
             .store_ref(
                 begin_cell()
                     .store_ref(storage::ico_sale_code)
-                    .store_ref(storage::sbt_item_code)
+                    .store_ref(storage::sft_item_code)
                     .store_ref(storage::ref_wallet_code)
                 .end_cell()
             )
@@ -79,7 +79,7 @@ cell get_sale_data(slice sender_address, slice sale_data, int transferred_jetton
     slice admin_address         = my_address();
     slice owner_address         = sender_address;
     cell  content               = sale_data~load_ref();
-    cell  sbt_item_code         = sale_data~load_ref();
+    cell  sft_item_code         = sale_data~load_ref();
 
     slice internal_sale_data    = sale_data~load_ref().begin_parse();
     slice jetton_root_address   = internal_sale_data~load_msg_addr();
@@ -151,7 +151,7 @@ cell get_sale_data(slice sender_address, slice sale_data, int transferred_jetton
                         .store_slice(admin_address)
                         .store_slice(owner_address)
                         .store_ref(content)
-                        .store_ref(sbt_item_code)
+                        .store_ref(sft_item_code)
                     .end_cell()
                 ) ;; \collection_info
                 .store_ref( ;; internal_ds
@@ -313,7 +313,7 @@ slice deploy_ico_sale(cell sale_data) impure inline {  ;; deploys new staking po
 
     if (op == op::change_codes) {
         storage::ico_sale_code = in_msg_body~load_ref();
-        storage::sbt_item_code = in_msg_body~load_ref();
+        storage::sft_item_code = in_msg_body~load_ref();
         storage::ref_wallet_code = in_msg_body~load_ref();
         send_message_with_comment(storage::owner_address, 0, "Sale admin codes were changed", mode::carry_remaining_gas);
         save_data();
@@ -353,7 +353,7 @@ slice deploy_ico_sale(cell sale_data) impure inline {  ;; deploys new staking po
         storage::commission_factors,
         
         storage::ico_sale_code,
-        storage::sbt_item_code,
+        storage::sft_item_code,
         storage::ref_wallet_code
     );
 }

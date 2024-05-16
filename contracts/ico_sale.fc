@@ -8,7 +8,7 @@ global int   storage::init?;
 global slice storage::admin_address;           ;; Launchpad (royalty) address  (MsgAddress)
 global slice storage::owner_address;           ;; owner address (MsgAddress)
 global cell  storage::content;                 ;; collection content (Cell)
-global cell  storage::sbt_item_code;           ;; NFT code (Cell)
+global cell  storage::sft_item_code;           ;; NFT code (Cell)
 
 global cell  storage::purchase_conditions;     ;; Cell with purchases conditions for different WL lvls (Cell)
 global cell  storage::commission_factors;      ;; Hashmap. Key = minimum collected ton (uint128), Value = commission factor (uint32)
@@ -74,11 +74,11 @@ global int jettons_for_sale;
     storage::jettons_added?        = ds~load_int(1);
     storage::sale_finished?        = ds~load_int(1);
 
-    slice collection_info          = ds~load_ref().begin_parse(); ;; data: 267 + 267 = 534; refs: content + sbt_item_code = 2
+    slice collection_info          = ds~load_ref().begin_parse(); ;; data: 267 + 267 = 534; refs: content + sft_item_code = 2
     storage::admin_address         = collection_info~load_msg_addr();
     storage::owner_address         = collection_info~load_msg_addr();
     storage::content               = collection_info~load_ref();
-    storage::sbt_item_code         = collection_info~load_ref();
+    storage::sft_item_code         = collection_info~load_ref();
 
     slice internal_ds              = ds~load_ref().begin_parse(); ;; data: 267 + 267 + 267 + 128 + 32 + 1 = 962; refs: purchaise_conditions + commission_factors = 2
     storage::jetton_root_address   = internal_ds~load_msg_addr();
@@ -127,7 +127,7 @@ global int jettons_for_sale;
                     .store_slice(storage::admin_address)
                     .store_slice(storage::owner_address)
                     .store_ref(storage::content)
-                    .store_ref(storage::sbt_item_code)
+                    .store_ref(storage::sft_item_code)
                 .end_cell()
             ) ;; \collection_info
             .store_ref( ;; internal_ds
@@ -185,7 +185,7 @@ builder store_pool_params_native_jetton(builder b, int jetton_root_workchain, in
 }
 
 
-() sell_tokens(int query_id, int msg_value, slice buyer_address, int price_factor, int price_devider, 
+() sell_tokens(int query_id, int msg_value, slice request_address, slice buyer_address, int price_factor, int price_devider, 
                 int min_purchase_ton, int max_purchase_ton, slice ref_address, int cashback_factor) impure inline {
     msg_value -= gas::purchase;
     int jettons_to_purchase = muldiv(msg_value, price_devider, price_factor);
@@ -197,30 +197,31 @@ builder store_pool_params_native_jetton(builder b, int jetton_root_workchain, in
     throw_unless(exc::more_than_max_purchase, msg_value <= max_purchase_ton);
     throw_unless(exc::not_enough_jettons, storage::jettons_sold < jettons_for_sale);
 
-    (int worckchain, int buyer_address_int) = parse_std_addr(buyer_address);
+    (int worckchain, int buyer_address_int) = parse_std_addr(request_address);
 
-    cell sbt_state_init = calculate_nft_item_state_init(buyer_address_int, storage::sbt_item_code, my_address());
-    slice sbt_address = get_address_by_state_init(sbt_state_init);
+    cell sft_state_init = calculate_nft_item_state_init(buyer_address_int, storage::sft_item_code, my_address());
+    slice sft_address = get_address_by_state_init(sft_state_init);
     
-    builder sbt_message = begin_cell()
-                            .store_uint(op::update_sbt_data, 32)
+    builder sft_message = begin_cell()
+                            .store_uint(op::update_sft_data, 32)
                             .store_uint(query_id, 64)
                             .store_coins(jettons_to_purchase)
                             .store_coins(msg_value)
                             .store_coins(max_purchase_ton)
+                            .store_slice(buyer_address)
                             .store_uint(storage::first_unlock_time, 32)
                             .store_uint(storage::first_unlock_size, 32)
                             .store_uint(storage::cycle_length, 32)
                             .store_uint(storage::cycles_number, 16);
     if (cashback_factor) {
-        sbt_message = sbt_message.store_maybe_ref(
+        sft_message = sft_message.store_maybe_ref(
             begin_cell().store_slice(ref_address).store_uint(cashback_factor, 32).end_cell()
         );
     }
     else {
-        sbt_message = sbt_message.store_uint(0, 1);
+        sft_message = sft_message.store_uint(0, 1);
     }
-    send_deploy_message(sbt_address, gas::deploy_sbt, sbt_state_init, sbt_message.end_cell(), mode::simple); 
+    send_deploy_message(sft_address, gas::deploy_sft, sft_state_init, sft_message.end_cell(), mode::simple); 
 
     save_data();
     return ();
@@ -369,7 +370,8 @@ builder store_pool_params_native_jetton(builder b, int jetton_root_workchain, in
         throw_unless(exc::sale_finished, now() < storage::sale_end_time);
 
         slice purchase_conditions_parsed = storage::purchase_conditions.begin_parse();
-        
+        slice buyer_address = sender_address;
+
         if (op == op::ownership_proof) {  ;; message from WL sbt
             int wl_sbt_index = in_msg_body~load_uint(256);
             slice owner_address = in_msg_body~load_msg_addr();
@@ -383,7 +385,7 @@ builder store_pool_params_native_jetton(builder b, int jetton_root_workchain, in
             slice expected_wl_sbt_address = get_address_by_state_init(calculate_nft_item_state_init(wl_sbt_index, wl_sbt_code, wl_collection_address));
 
             throw_unless(exc::incorrect_sender, equal_slices(expected_wl_sbt_address, sender_address));
-            sender_address = owner_address;
+            buyer_address = owner_address;
         } 
         
         int price_factor     = purchase_conditions_parsed~load_uint(128);
@@ -393,7 +395,7 @@ builder store_pool_params_native_jetton(builder b, int jetton_root_workchain, in
 
         (slice ref_address, int discount_factor, int cashback_factor) = get_referral_data(in_msg_body);
 
-        sell_tokens(query_id, msg_value, sender_address, price_factor * (percent_devider - discount_factor), price_devider * percent_devider, min_purchase_ton, max_purchase_ton, ref_address, cashback_factor);
+        sell_tokens(query_id, msg_value, sender_address, buyer_address, price_factor * (percent_devider - discount_factor), price_devider * percent_devider, min_purchase_ton, max_purchase_ton, ref_address, cashback_factor);
         return ();
     }
 
@@ -409,32 +411,32 @@ builder store_pool_params_native_jetton(builder b, int jetton_root_workchain, in
 
     ;; messages from SBT
     if ((op == op::claim) | (op == op::cancel_purchase) | (op == op::approve_purchase) | (op == op::request_refund)) {
-        int sbt_index = in_msg_body~load_uint(256);
-        slice expected_address = get_address_by_state_init(calculate_nft_item_state_init(sbt_index, storage::sbt_item_code, my_address()));
+        int sft_index = in_msg_body~load_uint(256);
+        slice expected_address = get_address_by_state_init(calculate_nft_item_state_init(sft_index, storage::sft_item_code, my_address()));
         throw_unless(exc::incorrect_sender, equal_slices(expected_address, sender_address));
         
-        slice sbt_owner_address = begin_cell().store_uint(1024, 11).store_uint(sbt_index, 256).end_cell().begin_parse();
+        slice sft_owner_address = begin_cell().store_uint(1024, 11).store_uint(sft_index, 256).end_cell().begin_parse();
         int coins_amount = in_msg_body~load_coins();
 
         if (op == op::claim) {
             throw_unless(exc::sale_failed, storage::ton_collected < storage::min_ton_collected);
             throw_unless(exc::sale_not_finished, storage::sale_finished?);
 
-            send_jettons(query_id, coins_amount, sbt_owner_address, sbt_owner_address, storage::jetton_wallet_address, 0, 
+            send_jettons(query_id, coins_amount, sft_owner_address, sft_owner_address, storage::jetton_wallet_address, 0, 
                             mode::carry_remaining_gas, 1, begin_cell().store_uint(0, 32).store_slice("Claim from JVault Launchpad").end_cell());
         }
         if (op == op::request_refund) {
             throw_unless(exc::sale_not_finished, now() > storage::sale_end_time);
             throw_unless(exc::sale_succeed, storage::ton_collected >= storage::min_ton_collected);
-            send_message_with_comment(sbt_owner_address, coins_amount, "Tokensale was unsuccessful", mode::simple);
+            send_message_with_comment(sft_owner_address, coins_amount, "Tokensale was unsuccessful", mode::simple);
         }
         if (op == op::cancel_purchase) {
             int ton_to_return = in_msg_body~load_coins();
-            cancel_purchase(sbt_owner_address, ton_to_return, coins_amount);
+            cancel_purchase(sft_owner_address, ton_to_return, coins_amount);
         }
         if (op == op::approve_purchase) {
             slice ref_data = in_msg_body~load_dict().begin_parse();
-            approve_purchase(query_id, sbt_owner_address, coins_amount, ref_data);
+            approve_purchase(query_id, sft_owner_address, coins_amount, ref_data);
         }
 
         return ();
@@ -527,14 +529,14 @@ builder store_pool_params_native_jetton(builder b, int jetton_root_workchain, in
 
 (int, int, slice, cell, cell) get_jetton_data() method_id {
     load_data();
-    return (storage::jettons_sold, storage::jettons_added? & (storage::jettons_sold <= jettons_for_sale) & (now() <= storage::sale_end_time), storage::owner_address, storage::content, storage::sbt_item_code);
+    return (storage::jettons_sold, storage::jettons_added? & (storage::jettons_sold <= jettons_for_sale) & (now() <= storage::sale_end_time), storage::owner_address, storage::content, storage::sft_item_code);
 }
 
 
 slice get_wallet_address(slice owner_address) method_id {
     load_data();
     var(_, index) = parse_std_addr(owner_address);
-    cell state_init = calculate_nft_item_state_init(index, storage::sbt_item_code, my_address());
+    cell state_init = calculate_nft_item_state_init(index, storage::sft_item_code, my_address());
     return get_address_by_state_init(state_init);
 }
 
@@ -551,7 +553,7 @@ slice get_wallet_address(slice owner_address) method_id {
 
 ;; slice get_nft_address_by_index(int index) method_id {
 ;;     load_data();
-;;     cell state_init = calculate_nft_item_state_init(index, storage::sbt_item_code, my_address());
+;;     cell state_init = calculate_nft_item_state_init(index, storage::sft_item_code, my_address());
 ;;     return get_address_by_state_init(state_init);
 ;; }
 
@@ -619,7 +621,7 @@ slice get_wallet_address(slice owner_address) method_id {
         storage::admin_address,         ;; Launchpad (royalty) address  (MsgAddress)
         storage::owner_address,         ;; owner address (MsgAddress)
         storage::content,               ;; collection content (Cell)
-        storage::sbt_item_code,         ;; NFT code (Cell)
+        storage::sft_item_code,         ;; NFT code (Cell)
 
         storage::purchase_conditions,   ;; Cell with purchases conditions for different WL lvls (Cell)
         storage::commission_factors,    ;; Hashmap. Key = minimum collected ton (uint128), Value = commission factor (uint32)
