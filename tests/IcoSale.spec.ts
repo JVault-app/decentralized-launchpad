@@ -8,6 +8,7 @@ import { JettonWallet } from '../wrappers/JettonWallet';
 import { JettonMinter } from '../wrappers/JettonMinter';
 import { SbtSingle } from '../wrappers/SbtSingle';
 import { randomAddress } from '@ton-community/test-utils';
+import { ErrorCodes } from '../wrappers/helpers/constants';
 
 describe('RefWallet', () => {
     let icoSaleCode: Cell;
@@ -31,21 +32,23 @@ describe('RefWallet', () => {
     let user2: SandboxContract<TreasuryContract>;
 
     let ico: SandboxContract<IcoSale>
+    const nowSetting = 2000000000
 
     beforeAll(async () => {
         icoSaleCode = await compile('IcoSale')
         refWalletCode = await compile('RefWallet');
-        sbtCode = await compile('SbtNft')
+        sbtCode = await compile('SftItem')
         jettonRootCode = await compile('JettonMinter')
         jettonWalletCode = await compile('JettonWallet')
         wlSbtCode = await compile('SbtSingle')
     });
 
     let blockchain: Blockchain;
-
+    let conf: IcoSaleConfig
 
     beforeEach(async () => {
         blockchain = await Blockchain.create();
+        blockchain.now = nowSetting
 
         wlCollectionAddress = await blockchain.treasury("WlCollection")
         adminAddress = await blockchain.treasury("admin")
@@ -80,16 +83,16 @@ describe('RefWallet', () => {
         let commission_factors: Dictionary<bigint, number> = Dictionary.empty()
         let refsDict: Dictionary<Address, RefsDictValue> = Dictionary.empty()
         refsDict = refsDict.set(ref.address, {cashbackFactor: 10, discountFactor: 5})
-        let conf = {
-            saleStartTime: 0,
-            saleEndTime: 0,
+        conf = {
+            saleStartTime: nowSetting + 1000,
+            saleEndTime: nowSetting + 10000,
 
             minTonCollected: toNano(30000),
             allocatedJettons: toNano(30000),
             liquidityPartTon: 80000000,
             liquidityPartJetton: 40000000,
 
-            firstUnlockTime: 0,
+            firstUnlockTime: nowSetting + 12000,
             firstUnlockSize: 10000000,
             cycleLength: 3600,
             cyclesNumber: 10,
@@ -151,4 +154,36 @@ describe('RefWallet', () => {
         expect(await jettonWalletAddress.getJettonBalance()).toEqual(toNano(30000))
         expect((await ico.getStorageData()).jettons_added).toBeTruthy()
     });
+    it('should sale without wl and ref', async () => {
+        let res = await user1JettonWalletAddress.sendTransfer(user1.getSender(), toNano("0.15"), toNano(30000), ico.address, user1.address, null, toNano("0.1"), null)
+        expect(await jettonWalletAddress.getJettonBalance()).toEqual(toNano(30000))
+        expect((await ico.getStorageData()).jettons_added).toBeTruthy()
+
+        res = await ico.sendSimpleBuy(user1.getSender(), toNano(500))
+        // printTransactionFees(res.transactions)
+        expect(res.transactions).toHaveTransaction({
+            to: ico.address,
+            exitCode: ErrorCodes.saleNotStarted
+        })
+        blockchain.now = conf.saleStartTime + 1
+        res = await ico.sendSimpleBuy(user1.getSender(), toNano(10))
+        // printTransactionFees(res.transactions)
+        expect(res.transactions).toHaveTransaction({
+            to: ico.address,
+            exitCode: ErrorCodes.lessThanMinPurchase
+        })
+        res = await ico.sendSimpleBuy(user1.getSender(), toNano(101))
+        // printTransactionFees(res.transactions)
+        expect(res.transactions).toHaveTransaction({
+            to: ico.address,
+            exitCode: ErrorCodes.moreThanMaxPurchase
+        })
+        res = await ico.sendSimpleBuy(user1.getSender(), toNano(20))
+        printTransactionFees(res.transactions)
+        // console.log(res.transactions)
+        // expect(res.transactions).toHaveTransaction({
+        //     to: ico.address,
+        //     exitCode: ErrorCodes.lessThanMinPurchase
+        // })
+    })
 });
