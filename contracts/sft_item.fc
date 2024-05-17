@@ -330,11 +330,12 @@ cell my_code() asm "MYCODE";
 ;; }
 
 
-(int, slice, int, int, int, int, int, int, int, int, cell) get_storage_data() method_id {
+(int, slice, slice, int, int, int, int, int, int, int, int, cell) get_storage_data() method_id {
     load_data();
 
     return (
         storage::index,
+        storage::collection_address,
         storage::buyer_address,
         storage::purchased_jettons,
         storage::collected_ton,

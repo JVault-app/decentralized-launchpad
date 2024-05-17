@@ -3,20 +3,21 @@ import { Address, beginCell, Cell, Contract, contractAddress, ContractProvider, 
 import { OpCodes } from './helpers/constants';
 import { Maybe } from 'ton-core/dist/utils/maybe';
 
-export type SbtItemDataConfig = {
+export type SftItemDataConfig = {
     index: bigint;
     collection_address: Address;
 };
 
-export function sbtItemDataConfigToCell(config: SbtItemDataConfig): Cell {
+export function sftItemDataConfigToCell(config: SftItemDataConfig): Cell {
     return beginCell().storeUint(config.index, 256).storeAddress(config.collection_address).endCell();
 }
 
-export type SbtItemMessageConfig = {
+export type SftItemMessageConfig = {
     queryId?: bigint;
     jettonsToPurchase: bigint;
     newCollectedTon: bigint;
     maxCollectedTon: bigint;
+    buyerAddress: Address;
     firstUnlockTime: number;
     firstUnlockSize: number;
     cycleLength: number;
@@ -24,13 +25,14 @@ export type SbtItemMessageConfig = {
     refData: Cell;
 }
 
-export function SbtItemMessageConfigToCell(config: SbtItemMessageConfig): Cell {
+export function SftItemMessageConfigToCell(config: SftItemMessageConfig): Cell {
     return beginCell()
                 .storeUint(OpCodes.UPDATE_SBT_DATA, 32)
                 .storeUint(config.queryId ?? 0, 64)
                 .storeCoins(config.jettonsToPurchase)
                 .storeCoins(config.newCollectedTon)
                 .storeCoins(config.maxCollectedTon)
+                .storeAddress(config.buyerAddress)
                 .storeUint(config.firstUnlockTime, 32)
                 .storeUint(config.firstUnlockSize, 32)
                 .storeUint(config.cycleLength, 32)
@@ -45,17 +47,17 @@ export class SbtNft implements Contract {
         return new SbtNft(address);
     }
 
-    static createFromConfig(config: SbtItemDataConfig, code: Cell, workchain = 0) {
-        const data = sbtItemDataConfigToCell(config);
+    static createFromConfig(config: SftItemDataConfig, code: Cell, workchain = 0) {
+        const data = sftItemDataConfigToCell(config);
         const init = { code, data };
         return new SbtNft(contractAddress(workchain, init), init);
     }
 
-    async sendDeploy(provider: ContractProvider, via: Sender, value: bigint, msgConfig: SbtItemMessageConfig) {
+    async sendDeploy(provider: ContractProvider, via: Sender, value: bigint, msgConfig: SftItemMessageConfig) {
         await provider.internal(via, {
             value,
             sendMode: SendMode.PAY_GAS_SEPARATELY,
-            body: SbtItemMessageConfigToCell(msgConfig),
+            body: SftItemMessageConfigToCell(msgConfig),
         });
     }
 
@@ -89,6 +91,7 @@ export class SbtNft implements Contract {
         let { stack } = await provider.get('get_storage_data', []);
         return {
             index: stack.readNumber(),
+            ico_address: stack.readAddress(),
             owner_address: stack.readAddress(),
             purchased_jettons: stack.readBigNumber(),
             collected_ton: stack.readBigNumber(),
