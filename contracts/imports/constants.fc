@@ -88,7 +88,7 @@ const int exc::sale_succeed = 55;
 const int exc::refund_requested = 56;
 const int exc::already_inited = 57;
 const int exc::already_started = 58;
-
+const int exc::incorrect_data = 59;
 
 const int exc::wrong_chain = 333;
 const int exc::unsupported_op = 0xffff;

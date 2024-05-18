@@ -53,9 +53,9 @@ global cell  storage::ref_wallet_code;         ;; Code of the ref wallet (ref_wa
 }
 
 
-cell get_sale_data(slice sender_address, slice sale_data, int transferred_jettons) impure inline { ;; returns new ico_cale c4 data
+(int) check_sale_data(slice sender_address, slice sale_data, int transferred_jettons) impure inline {  ;; check wether sale data is correct
     ;; load sale data
-    int   init?                 = 0;
+    int   init?                 = sale_data~load_int(1);
     int   sale_start_time       = sale_data~load_uint(32);
     int   sale_end_time         = sale_data~load_uint(32);
 
@@ -64,8 +64,8 @@ cell get_sale_data(slice sender_address, slice sale_data, int transferred_jetton
     int   liquidity_part_ton    = sale_data~load_uint(32);
     int   liquidity_part_jetton = sale_data~load_uint(32);
 
-    int   ton_collected         = 0;
-    int   jettons_sold          = 0;
+    int   ton_collected         = sale_data~load_coins();
+    int   jettons_sold          = sale_data~load_coins();
 
     int   first_unlock_time     = sale_data~load_uint(32);
     int   first_unlock_size     = sale_data~load_uint(16);
@@ -73,27 +73,32 @@ cell get_sale_data(slice sender_address, slice sale_data, int transferred_jetton
     int   cycles_number         = sale_data~load_uint(16);
 
     slice jetton_wallet_address = sale_data~load_msg_addr();
-    int   jettons_added?        = 0;
-    int   sale_finished?        = 0;
+    int   jettons_added?        = sale_data~load_int(1);
+    int   sale_finished?        = sale_data~load_int(1);
     int   change_invitee?       = sale_data~load_int(1);
 
-    slice admin_address         = my_address();
-    slice owner_address         = sender_address;
-    cell  content               = sale_data~load_ref();
-    cell  sft_item_code         = sale_data~load_ref();
+    slice collection_info       = sale_data~load_ref().begin_parse();
+    slice admin_address         = collection_info~load_msg_addr();
+    slice owner_address         = collection_info~load_msg_addr();
+    cell  content               = collection_info~load_ref();
+    cell  sft_item_code         = collection_info~load_ref();
 
     slice internal_sale_data    = sale_data~load_ref().begin_parse();
     slice jetton_root_address   = internal_sale_data~load_msg_addr();
     slice native_vault_address  = internal_sale_data~load_msg_addr();
     slice jetton_vault_address  = internal_sale_data~load_msg_addr();
     cell  purchase_conditions   = internal_sale_data~load_ref();
-    cell  commission_factors    = storage::commission_factors;
+    cell  commission_factors    = internal_sale_data~load_ref();
     
     int   min_ref_purchase      = internal_sale_data~load_coins();
     int   default_cashback      = internal_sale_data~load_uint(32);
     cell  refs_dict             = internal_sale_data~load_dict();
     cell  ref_wallet_code       = internal_sale_data~load_ref(); 
 
+    ;; check init params
+    throw_unless(exc::incorrect_data, ((init? == 0) & (ton_collected == 0) & (jettons_sold == 0) & (jettons_added? == 0) &
+                                       (sale_finished? == 0) & equal_slices(admin_address, my_address()) & equal_slices(owner_address, sender_address) & 
+                                       (cell_hash(commission_factors) == cell_hash(storage::commission_factors))));
     ;; check some integer values
     throw_unless(exc::int_out_of_range, (default_cashback > 0) & (sale_start_time > 0) & (sale_end_time > sale_start_time) &
                                         (liquidity_part_jetton >= 0) & (liquidity_part_ton >= 0) & (first_unlock_time >= sale_end_time) &
@@ -122,53 +127,7 @@ cell get_sale_data(slice sender_address, slice sale_data, int transferred_jetton
         throw_unless(exc::int_out_of_range, (price_factor > 0) & (price_devider > 0) & (min_purchase_ton > 0) & (max_purchase_ton > min_purchase_ton));
     }
     
-    ;; return full c4 of ico_sale smart contract
-    return begin_cell()
-                .store_int(init?, 1)
-
-                .store_uint(sale_start_time, 32)
-                .store_uint(sale_end_time, 32)
-                
-                .store_coins(min_ton_collected)
-                .store_coins(allocated_jettons)
-                .store_uint(liquidity_part_ton, 32)
-                .store_uint(liquidity_part_jetton, 32)
-
-                .store_coins(ton_collected)
-                .store_coins(jettons_sold)
-
-                .store_uint(first_unlock_time, 32)
-                .store_uint(first_unlock_size, 16)
-                .store_uint(cycle_length, 32)
-                .store_uint(cycles_number, 16)
-                
-                .store_slice(jetton_wallet_address)
-                .store_int(jettons_added?, 1)
-                .store_int(sale_finished?, 1)
-                .store_int(change_invitee?, 1)
-
-                .store_ref( ;; collection_info
-                    begin_cell()
-                        .store_slice(admin_address)
-                        .store_slice(owner_address)
-                        .store_ref(content)
-                        .store_ref(sft_item_code)
-                    .end_cell()
-                ) ;; \collection_info
-                .store_ref( ;; internal_ds
-                    begin_cell()
-                        .store_slice(jetton_root_address)
-                        .store_slice(native_vault_address)
-                        .store_slice(jetton_vault_address)
-                        .store_ref(purchase_conditions)
-                        .store_ref(commission_factors)
-                        .store_coins(min_ref_purchase)
-                        .store_uint(default_cashback, 32)
-                        .store_dict(refs_dict)
-                        .store_ref(ref_wallet_code)
-                    .end_cell()
-                ) ;; \internal_ds
-            .end_cell();
+    return true;
 }
 
 
@@ -239,9 +198,10 @@ slice deploy_ico_sale(cell sale_data) impure inline {  ;; deploys new staking po
             
             if (inner_op == op::deploy_ico_sale) {
                 throw_unless(exc::incorrect_sender, equal_slices(sender_address, storage::jetton_wallet_address));
-
-                cell sale_data = get_sale_data(sender_address, payload, jetton_amount);
-                deploy_ico_sale(sale_data);
+                cell sale_data = begin_cell().store_slice(payload).end_cell();
+                if (check_sale_data(sender_address, payload, jetton_amount)) {
+                    deploy_ico_sale(sale_data);
+                }
 
                 send_commissions(storage::jetton_wallet_address, jetton_amount, query_id, true);
                 return ();

@@ -130,60 +130,6 @@ sale_admin_storage$_
 // размеру фиксированного сбора.
 // Если действие успешное, то деплоится новый контракт ico_sale, а пришедшие жетоны распределяются по системе revenue share
 // иначе, пришедшие жетоны отправляются обратно юзеру или происходит ошибка недостаточного газа.
-ico_sale_data$_
-    sale_start_time:uint32
-    sale_end_time:uint32
-     
-    min_ton_collected:Coins
-    allocated_jettons:Coins
-    liquidity_part_ton:uint32
-    liquidity_part_jetton:uint32
-     
-    first_unlock_time:uint32
-    first_unlock_size:uint16
-    cycle_length:uint32
-    cycles_number:uint16
-    jetton_wallet_address:MsgAddress
-    change_invitee:Bool
-    content:^Cell
-    sbt_item_code:^Cell
-     
-    internal_sale_data:^[
-        jetton_root_address:MsgAddress
-        native_vault_address:MsgAddress
-        jetton_vault_address:MsgAddress
-        purchase_conditions:PurchaseConditionsRoot
-
-        min_ref_purchase:Coins
-        default_cashback:uint32
-        refs_dict:RefsDict
-        ref_wallet_code:^Cell
-    ]
- = IcoSaleData;
-
-deploy_ico_sale_payload#16ccca41
-    user_sale_data:IcoSaleData
- = DeployIcoSalePayload;
-
-deploy_ico_request$_ _:(JettonTransferNotificationMsg DeployIcoSalePayload) = InternalMsgBody;
-
-// Деплой нового fairlaunch_sale.fc (TODO)
-// Если действие успешное, то деплоится новый контракт fairlaunch_sale, а пришедшие жетоны распределяются по системе revenue share
-// иначе, пришедшие жетоны отправляются обратно юзеру или происходит ошибка недостаточного газа.
-
-
-// Отправка комиссий с сейлов на sale_admin.fc.
-// Происходит после успешного завершения сейла процент от привлеченных средств (в виде TON или жетонов) отправляется на адрес sale_admin.
-// После этого комиссии пересылаются в соответствии с данными `revenue_share_addresses`
-send_ton_commission_request#b96adaea query_id:uint64 = InternalMsgBody;
-send_jetton_commission_payload#b96adaea = SendJettonCommissionPayload;
-send_jetton_commissions_body$_ _:(JettonTransferNotificationMsg SendJettonCommissionPayload) = InternalMsgBody;
-
-// =======================================================================
-
-// ico_sale.fc & sft_item.fc & ref_wallet.fc
-
-// storage:
 ico_sale_storage$_
     init:Bool
 
@@ -195,8 +141,8 @@ ico_sale_storage$_
     liquidity_part_ton:uint32
     liquidity_part_jetton:uint32
 
-    ton_collected:Coins
-    jettons_sold:Coins
+    ton_collected:Coins  // 0 in case of deployment
+    jettons_sold:Coins  // 0 in case of deployment
 
     first_unlock_time:uint32
     first_unlock_size:uint16
@@ -204,8 +150,8 @@ ico_sale_storage$_
     cycles_number:uint16
 
     jetton_wallet_address:MsgAddress
-    jettons_added:Bool
-    sale_finished:Bool
+    jettons_added:Bool  // 0 in case of deployment
+    sale_finished:Bool  // 0 in case of deployment
     change_invitee:Bool
 
     collection_info:^[
@@ -228,7 +174,28 @@ ico_sale_storage$_
     ]
 = IcoSaleStorage;
 
-//--
+deploy_ico_sale_payload#16ccca41
+    user_sale_data:IcoSaleStorage
+ = DeployIcoSalePayload;
+
+deploy_ico_request$_ _:(JettonTransferNotificationMsg DeployIcoSalePayload) = InternalMsgBody;
+
+// Деплой нового fairlaunch_sale.fc (TODO)
+// Если действие успешное, то деплоится новый контракт fairlaunch_sale, а пришедшие жетоны распределяются по системе revenue share
+// иначе, пришедшие жетоны отправляются обратно юзеру или происходит ошибка недостаточного газа.
+
+
+// Отправка комиссий с сейлов на sale_admin.fc.
+// Происходит после успешного завершения сейла процент от привлеченных средств (в виде TON или жетонов) отправляется на адрес sale_admin.
+// После этого комиссии пересылаются в соответствии с данными `revenue_share_addresses`
+send_ton_commission_request#b96adaea query_id:uint64 = InternalMsgBody;
+send_jetton_commission_payload#b96adaea = SendJettonCommissionPayload;
+send_jetton_commissions_body$_ _:(JettonTransferNotificationMsg SendJettonCommissionPayload) = InternalMsgBody;
+
+// =======================================================================
+
+// ico_sale.fc & sft_item.fc & ref_wallet.fc
+
 // При деплое на установленный адрес jetton_wallet_address, являющийся изначально адресом минтера, отправляется запрос на
 // получение актуального адреса jetton_wallet (ProvideWalletMsg). В ответ приходит сообщение TakeWalletMsg, и если
 // отправитель второго сообщения корректен, то jetton_wallet_address изменяется на отправленный минтером.
@@ -261,14 +228,14 @@ sft_item_storage$_
         buyer_address:MsgAddress
         purchased_jettons:Coins
         collected_ton:Coins
-        claimed_times:uint16  // 0 when deploy
-        claimed_jettons:Coins  // 0 when deploy
+        claimed_times:uint16  // 0 in case of deployment
+        claimed_jettons:Coins  // 0 in case of deployment
         first_unlock_time:uint32
         first_unlock_size:uint32
         cycle_length:uint32
         cycles_number:uint16
         ref_data:(Maybe ^[ref_address:MsgAddress cashback_factor:uint32])
-        refund_requested:Bool  // 0 when deploy
+        refund_requested:Bool  // 0 in case of deployment
         change_invitee:Bool
     ]
 = SftItemStorage;
