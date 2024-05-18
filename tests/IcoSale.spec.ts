@@ -8,13 +8,14 @@ import { JettonWallet } from '../wrappers/JettonWallet';
 import { JettonMinter } from '../wrappers/JettonMinter';
 import { SbtSingle } from '../wrappers/SbtSingle';
 import { randomAddress } from '@ton-community/test-utils';
-import { ErrorCodes } from '../wrappers/helpers/constants';
+import { ErrorCodes, OpCodes } from '../wrappers/helpers/constants';
+import { SbtNft } from '../wrappers/SftItem';
 
 describe('RefWallet', () => {
     let icoSaleCode: Cell;
     let refWalletCode: Cell
     let sbtCode: Cell
-    let wlSbtCode: Cell
+    let sbtSingleCode: Cell
     let jettonRootCode: Cell
     let jettonWalletCode: Cell
 
@@ -40,7 +41,7 @@ describe('RefWallet', () => {
         sbtCode = await compile('SftItem')
         jettonRootCode = await compile('JettonMinter')
         jettonWalletCode = await compile('JettonWallet')
-        wlSbtCode = await compile('SbtSingle')
+        sbtSingleCode = await compile('SbtSingle')
     });
 
     let blockchain: Blockchain;
@@ -61,22 +62,24 @@ describe('RefWallet', () => {
         await jettonRootAddress.sendMint(adminAddress.getSender(), user1.address, toNano(999999999999), toNano("0.2"), toNano("0.5"))
         user1JettonWalletAddress = blockchain.openContract(JettonWallet.createFromAddress(await jettonRootAddress.getWalletAddress(user1.address)))
 
-        wlSbt = blockchain.openContract(SbtSingle.createFromConfig({collection_address: wlCollectionAddress.address, index: 0n}, sbtCode))
-        await wlSbt.sendDeploy(wlCollectionAddress.getSender(), toNano("0.1"), {owner: user1.address, content: Cell.EMPTY})
+        wlSbt = blockchain.openContract(SbtSingle.createFromConfig({collection_address: wlCollectionAddress.address, index: 0n}, sbtSingleCode))
+        const wlres = await wlSbt.sendDeploy(wlCollectionAddress.getSender(), toNano("0.1"), {owner: user2.address, content: Cell.EMPTY})
+        // console.log(wlres.transactions)
+        expect((await wlSbt.getData()).init).toBeTruthy()
 
         nativeVaultAddress = randomAddress()
         jettonVaultAddress = randomAddress()
 
         let purchaseConditions = {
-            priceFactor: 90n,
-            priceDevider: 100n,
+            priceFactor: 2n,
+            priceDevider: 1n,
             minPurchaseTon: toNano(10),
             maxPurchaseTon: toNano(100),
                 wlCondition1: {
-                    priceFactor: 85n,
-                    priceDevider: 100n,
+                    priceFactor: 1n,
+                    priceDevider: 1n,
                     minPurchaseTon: toNano(10),
-                    maxPurchaseTon: toNano(150), wlSbtCode, 
+                    maxPurchaseTon: toNano(30000), wlSbtCode: sbtSingleCode, 
                     wlCollectionAddress: wlCollectionAddress.address
                 }
         }
@@ -88,7 +91,7 @@ describe('RefWallet', () => {
             saleEndTime: nowSetting + 10000,
 
             minTonCollected: toNano(30000),
-            allocatedJettons: toNano(30000),
+            allocatedJettons: toNano(100000),
             liquidityPartTon: 80000000,
             liquidityPartJetton: 40000000,
 
@@ -141,24 +144,27 @@ describe('RefWallet', () => {
         let fakeUser1Wallet = blockchain.openContract(JettonWallet.createFromAddress(await fakeJettonRootAddress.getWalletAddress(user1.address)))
         let fakeIcoWallet = blockchain.openContract(JettonWallet.createFromAddress(await fakeJettonRootAddress.getWalletAddress(ico.address)))
 
-        res = await fakeUser1Wallet.sendTransfer(user1.getSender(), toNano("0.15"), toNano(30000), ico.address, user1.address, null, toNano("0.1"), null)
+        res = await fakeUser1Wallet.sendTransfer(user1.getSender(), toNano("0.15"), toNano(100000), ico.address, user1.address, null, toNano("0.1"), null)
         // printTransactionFees(res.transactions)
         expect(await fakeIcoWallet.getJettonBalance()).toEqual(toNano(0))
         expect((await ico.getStorageData()).jettons_added).toBeFalsy()
 
-        res = await user1JettonWalletAddress.sendTransfer(user1.getSender(), toNano("0.15"), toNano(30000), ico.address, user1.address, null, toNano("0.1"), null)
+        res = await user1JettonWalletAddress.sendTransfer(user1.getSender(), toNano("0.15"), toNano(100000), ico.address, user1.address, null, toNano("0.1"), null)
         // printTransactionFees(res.transactions)
-        expect(await jettonWalletAddress.getJettonBalance()).toEqual(toNano(30000))
+        expect(await jettonWalletAddress.getJettonBalance()).toEqual(toNano(100000))
         expect((await ico.getStorageData()).jettons_added).toBeTruthy()
-        res = await user1JettonWalletAddress.sendTransfer(user1.getSender(), toNano("0.15"), toNano(30000), ico.address, user1.address, null, toNano("0.1"), null)
+        res = await user1JettonWalletAddress.sendTransfer(user1.getSender(), toNano("0.15"), toNano(100000), ico.address, user1.address, null, toNano("0.1"), null)
         // printTransactionFees(res.transactions)
-        expect(await jettonWalletAddress.getJettonBalance()).toEqual(toNano(30000))
+        expect(await jettonWalletAddress.getJettonBalance()).toEqual(toNano(100000))
         expect((await ico.getStorageData()).jettons_added).toBeTruthy()
     });
     it('should sale without wl and ref', async () => {
-        let res = await user1JettonWalletAddress.sendTransfer(user1.getSender(), toNano("0.15"), toNano(30000), ico.address, user1.address, null, toNano("0.1"), null)
-        expect(await jettonWalletAddress.getJettonBalance()).toEqual(toNano(30000))
+        conf.minTonCollected = toNano(50)
+        let res = await user1JettonWalletAddress.sendTransfer(user1.getSender(), toNano("0.15"), toNano(100000), ico.address, user1.address, null, toNano("0.1"), null)
+        expect(await jettonWalletAddress.getJettonBalance()).toEqual(toNano(100000))
         expect((await ico.getStorageData()).jettons_added).toBeTruthy()
+
+        let user1Claim = blockchain.openContract(SbtNft.createFromAddress(await ico.getWalletAddress(user1.address)))
 
         res = await ico.sendSimpleBuy(user1.getSender(), toNano(500))
         // printTransactionFees(res.transactions)
@@ -173,18 +179,66 @@ describe('RefWallet', () => {
             to: ico.address,
             exitCode: ErrorCodes.lessThanMinPurchase
         })
-        res = await ico.sendSimpleBuy(user1.getSender(), toNano(101))
+        res = await ico.sendSimpleBuy(user1.getSender(), toNano(102))
         // printTransactionFees(res.transactions)
         expect(res.transactions).toHaveTransaction({
             to: ico.address,
             exitCode: ErrorCodes.moreThanMaxPurchase
         })
         res = await ico.sendSimpleBuy(user1.getSender(), toNano(20))
+        // printTransactionFees(res.transactions)
         printTransactionFees(res.transactions)
-        // console.log(res.transactions)
-        // expect(res.transactions).toHaveTransaction({
-        //     to: ico.address,
-        //     exitCode: ErrorCodes.lessThanMinPurchase
-        // })
+        console.log(await user1Claim.getStorageData())
+        expect(res.transactions).toHaveTransaction({
+            from: ico.address,
+            to: user1Claim.address,
+            op: OpCodes.UPDATE_SBT_DATA
+        })
+        expect(res.transactions).toHaveTransaction({
+            from: user1Claim.address,
+            to: user1.address,
+            op: OpCodes.TRANSFER_NOTIFICATION
+        })
+        expect(res.transactions).toHaveTransaction({
+            from: user1Claim.address,
+            to: ico.address,
+            op: OpCodes.APPROVE_PURCHASE
+        })
+        res = await ico.sendSimpleBuy(user1.getSender(), toNano(80))
+        // printTransactionFees(res.transactions)
+        expect(res.transactions).toHaveTransaction({
+            from: ico.address,
+            op: OpCodes.UPDATE_SBT_DATA
+        })
+        expect(res.transactions).toHaveTransaction({
+            to: user1.address,
+            op: OpCodes.TRANSFER_NOTIFICATION
+        })
+        expect(res.transactions).toHaveTransaction({
+            to: ico.address,
+            op: OpCodes.APPROVE_PURCHASE
+        })
+        res = await ico.sendSimpleBuy(user1.getSender(), toNano(20))
+        // printTransactionFees(res.transactions)
+        expect(res.transactions).toHaveTransaction({
+            from: ico.address,
+            to: user1Claim.address,
+            op: OpCodes.UPDATE_SBT_DATA
+        })
+        expect(res.transactions).toHaveTransaction({
+            from: user1Claim.address,
+            to: ico.address,
+            op: OpCodes.CANCEL_PURCHASE
+        })
+
+        res = await user1Claim.sendClaim(user1.getSender(), toNano("0.1"))
+        expect(res.transactions).toHaveTransaction({
+            op: OpCodes.CLAIM,
+            exitCode: ErrorCodes.notUnlockedYet
+        })
+
+        res = await wlSbt.sendBuyWl(user2.getSender(), toNano(30000), {dest: ico.address, lvl: 0})
+        // printTransactionFees(res.transactions)
+        // console.log(res.transactions[2].vmLogs)
     })
 });

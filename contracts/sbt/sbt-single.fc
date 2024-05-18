@@ -29,7 +29,7 @@ global int storage::revoked_at;
 () load_data() impure {
     slice ds = get_data().begin_parse();
 
-    storage::index              = ds~load_uint(64);
+    storage::index              = ds~load_uint(256);
     storage::collection_address = ds~load_msg_addr();
     init?                       = false;
 
@@ -45,7 +45,7 @@ global int storage::revoked_at;
 () store_data() impure {
     set_data(
             begin_cell()
-                    .store_uint(storage::index, 64)
+                    .store_uint(storage::index, 256)
                     .store_slice(storage::collection_address)
                     .store_slice(storage::owner_address)
                     .store_ref(storage::content)

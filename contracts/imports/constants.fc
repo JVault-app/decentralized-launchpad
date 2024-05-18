@@ -96,16 +96,16 @@ const int exc::unsupported_op = 0xffff;
 
 {- GAS (TODO) -}
 
-const int min_tons_for_storage = 25000000;   
+const int min_tons_for_storage = 10000000;   
 const int gas::send_jettons    = 40000000;
 const int gas::burn_jettons    = 30000000;
 const int gas::provide_addr    = 100000000;
 
 const int gas::deploy_ico_sale = 50000000;
-const int gas::deploy_sft      = 100000000;
+const int gas::deploy_sft      = 50000000;
 const int gas::deploy_ref      = 50000000;
 
-const int gas::purchase        = 20000000;
+const int gas::purchase        = 150000000; ;; deploy_sft + deploy_ref + update_wallet + gas
 const int gas::end_sale        = 500000000;
 const int gas::provide_ton     = 400000000;
 const int gas::provide_jetton  = 400000000;

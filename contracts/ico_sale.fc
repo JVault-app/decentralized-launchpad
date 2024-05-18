@@ -233,7 +233,7 @@ builder store_pool_params_native_jetton(builder b, int jetton_root_workchain, in
 
 
 () cancel_purchase(slice buyer_address, int ton_to_return, int purchased_jettons) impure inline {
-    send_message_with_comment(buyer_address, ton_to_return, "Unsuccessful purchase", mode::simple);
+    send_message_with_comment(buyer_address, ton_to_return, "Unsuccessful purchase", mode::carry_remaining_gas);
 
     storage::jettons_sold -= purchased_jettons;
     storage::ton_collected -= ton_to_return;

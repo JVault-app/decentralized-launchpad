@@ -72,11 +72,11 @@ take_wallet_address#d1735400
 // common
 
 purchase_conditions_whitelist$_
+    wl_collection_address:MsgAddress
     price_factor:uint128
     price_devider:uint128
     min_purchase_ton:Coins
     max_purchase_ton:Coins
-    wl_collection_address:MsgAddress
     wl_sbt_code:^Cell
 = PurchaseConditionsWhitelist;
 

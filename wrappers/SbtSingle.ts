@@ -56,6 +56,21 @@ export class SbtSingle implements Contract {
     }
 
     async sendBuyWl(provider: ContractProvider, via: Sender, value: bigint, args: {dest: Address, lvl: number, ref?: Maybe<Address>}) {
-        return await this.sendProofOwnership(provider, via, value, {dest: args.dest, forwardPayload: beginCell().storeUint(args.lvl, 2).storeRef(beginCell().storeAddress(args.ref).endCell()).endCell(), withContent: false})
+        const b = beginCell().storeUint(args.lvl, 2)
+        if (args.ref) {
+            b.storeRef(beginCell().storeAddress(args.ref).endCell())
+        }
+        return await this.sendProofOwnership(provider, via, value, {dest: args.dest, forwardPayload: b.endCell(), withContent: false})
+    }
+
+    async getData(provider: ContractProvider) {
+        let { stack } = await provider.get('get_nft_data', []);
+        return {
+            init: stack.readBoolean(),
+            index: stack.readBigNumber(),
+            collection: stack.readAddress(),
+            owner: stack.readAddressOpt(),
+            content: stack.readCell()
+        }
     }
 }

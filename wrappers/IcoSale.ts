@@ -25,13 +25,15 @@ export type PurchaseConditionsRoot = {
 
 export function storePurchaseConditionsWhitelist(src: PurchaseConditionsWhitelist) {
     return (builder: Builder) => {
-        builder.storeUint(src.priceFactor, 128).storeUint(src.priceDevider, 128).storeCoins(src.minPurchaseTon).storeCoins(src.maxPurchaseTon).storeAddress(src.wlCollectionAddress).storeRef(src.wlSbtCode)
+        builder.storeAddress(src.wlCollectionAddress).storeUint(src.priceFactor, 128).storeUint(src.priceDevider, 128).storeCoins(src.minPurchaseTon).storeCoins(src.maxPurchaseTon).storeRef(src.wlSbtCode)
     };
 }
 
 export function storeMaybePurchaseConditionsWhitelist(src: Maybe<PurchaseConditionsWhitelist>) {
     return (builder: Builder) => {
-        builder.storeMaybeRef(src ? beginCell().store(storePurchaseConditionsWhitelist(src)).endCell() : null)
+        if (src) {
+            builder.storeRef(beginCell().store(storePurchaseConditionsWhitelist(src)).endCell())
+        }
     };
 }
 
@@ -232,15 +234,15 @@ export class IcoSale implements Contract {
         });
     }
 
-    static createPurchaseInfoMessage(args: {purchase: PurchaseConditionsRoot, queryId?: number | bigint}) {
+    static createChangePurchaseInfoMessage(args: {purchase: PurchaseConditionsRoot, queryId?: number | bigint}) {
         return beginCell().storeUint(OpCodes.CHANGE_PURCHASE_INFO, 32).storeUint(args.queryId ?? 0, 64).storeRef(beginCell().store(storePurchaseConditionsRoot(args.purchase)).endCell()).endCell()
     }
 
-    async sendPurchaseInfo(provider: ContractProvider, via: Sender, value: bigint, args: {purchase: PurchaseConditionsRoot, queryId?: number | bigint}) {
+    async sendChangePurchaseInfo(provider: ContractProvider, via: Sender, value: bigint, args: {purchase: PurchaseConditionsRoot, queryId?: number | bigint}) {
         await provider.internal(via, {
             value,
             sendMode: SendMode.PAY_GAS_SEPARATELY,
-            body: IcoSale.createPurchaseInfoMessage(args),
+            body: IcoSale.createChangePurchaseInfoMessage(args),
         });
     }
 

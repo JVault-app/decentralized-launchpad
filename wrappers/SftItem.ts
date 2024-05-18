@@ -1,4 +1,3 @@
-import { MsgPrices } from 'ton';
 import { Address, beginCell, Cell, Contract, contractAddress, ContractProvider, Sender, SendMode } from 'ton-core';
 import { OpCodes } from './helpers/constants';
 import { Maybe } from 'ton-core/dist/utils/maybe';
@@ -64,7 +63,7 @@ export class SbtNft implements Contract {
         });
     }
 
-    async sendClaim(provider: ContractProvider, via: Sender, value: bigint, queryId: Maybe<number | bigint>) {
+    async sendClaim(provider: ContractProvider, via: Sender, value: bigint, queryId?: Maybe<number | bigint>) {
         await provider.internal(via, {
             value,
             sendMode: SendMode.PAY_GAS_SEPARATELY,
@@ -93,7 +92,7 @@ export class SbtNft implements Contract {
     async getStorageData(provider: ContractProvider) {
         let { stack } = await provider.get('get_storage_data', []);
         return {
-            index: stack.readNumber(),
+            index: stack.readBigNumber(),
             ico_address: stack.readAddress(),
             owner_address: stack.readAddress(),
             purchased_jettons: stack.readBigNumber(),
