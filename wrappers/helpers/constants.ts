@@ -71,3 +71,28 @@ export const Gas = {
     CLAIM_REF:            20000000,
 
 };
+
+export const ErrorCodes = {
+    outOfGas: 13,
+    lessThanMinPurchase: 41,
+    moreThanMaxPurchase: 42,
+    incorrectJetton: 43,
+    notUnlockedYet: 44,
+    notEnoughJettons: 45,
+    saleNotStarted: 46,
+    saleFinished: 47,
+    saleNotFinished: 48,
+    incorrectSender: 49,
+    nothingToClaim: 50,
+    intOutOfRange: 51,
+    nftBurned: 52,
+    userNotInWl: 53,
+    saleFailed: 54,
+    saleSucceed: 55,
+    refundRequested: 56,
+    alreadyInited: 57,
+    alreadyStarted: 58,
+    wrongChain: 333,
+    unsupportedOp: 0xffff
+  };
+  

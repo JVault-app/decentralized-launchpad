@@ -221,7 +221,7 @@ builder store_pool_params_native_jetton(builder b, int jetton_root_workchain, in
     else {
         sft_message = sft_message.store_uint(0, 1);
     }
-    send_deploy_message(sft_address, gas::deploy_sft, sft_state_init, sft_message.end_cell(), mode::simple); 
+    send_deploy_message(sft_address, gas::deploy_sft, sft_state_init, sft_message.end_cell(), mode::pay_fees_separately); 
 
     save_data();
     return ();

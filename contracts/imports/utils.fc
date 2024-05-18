@@ -29,10 +29,10 @@ cell  preload_ref_index(slice s, int n) asm "PLDREFVAR";
 
 () send_deploy_message(slice to_address, int value, cell state_init, cell payload, int sending_mode) impure inline {
     cell msg = begin_cell()
-                    .store_uint(0x18, 6)
+                    .store_uint(0x10, 6)
                     .store_slice(to_address)
                     .store_coins(value)
-                    .store_uint(4 + 2, 1 + 4 + 4 + 64 + 32 + 1 + 1)
+                    .store_uint(3, 1 + 4 + 4 + 64 + 32 + 1 + 1)
                     .store_ref(state_init)
                     .store_maybe_ref(payload)
                 .end_cell();
@@ -49,8 +49,8 @@ cell  preload_ref_index(slice s, int n) asm "PLDREFVAR";
 
 
 cell calculate_nft_item_state_init(int item_index, cell nft_item_code, slice collection_address) inline {
-    cell data = begin_cell().store_uint(item_index, 64).store_slice(collection_address).end_cell();
-    return begin_cell().store_uint(0, 2).store_dict(nft_item_code).store_dict(data).store_uint(0, 1).end_cell();
+    cell data = begin_cell().store_uint(item_index, 256).store_slice(collection_address).end_cell();
+    return begin_cell().store_uint(0, 2).store_maybe_ref(nft_item_code).store_maybe_ref(data).store_uint(0, 1).end_cell();
 }
 
 
