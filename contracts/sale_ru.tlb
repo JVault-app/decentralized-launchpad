@@ -144,6 +144,7 @@ ico_sale_data$_
     cycle_length:uint32
     cycles_number:uint16
     jetton_wallet_address:MsgAddress
+    change_invitee:Bool
     content:^Cell
     sbt_item_code:^Cell
      
@@ -205,6 +206,7 @@ ico_sale_storage$_
     jetton_wallet_address:MsgAddress
     jettons_added:Bool
     sale_finished:Bool
+    change_invitee:Bool
 
     collection_info:^[
         admin_address:MsgAddress
@@ -266,7 +268,8 @@ sft_item_storage$_
         cycle_length:uint32
         cycles_number:uint16
         ref_data:(Maybe ^[ref_address:MsgAddress cashback_factor:uint32])
-        refund_requested:int1  // 0 when deploy
+        refund_requested:Bool  // 0 when deploy
+        change_invitee:Bool
     ]
 = SftItemStorage;
 

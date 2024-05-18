@@ -89,11 +89,10 @@ cell get_sale_data(slice sender_address, slice sale_data, int transferred_jetton
     cell  purchase_conditions   = internal_sale_data~load_ref();
     cell  commission_factors    = storage::commission_factors;
     
-    slice ref_conditions        = sale_data~load_ref().begin_parse();
-    int   min_ref_purchase      = ref_conditions~load_coins();
-    int   default_cashback      = ref_conditions~load_uint(32);
-    cell  refs_dict             = ref_conditions~load_dict();
-    cell  ref_wallet_code       = ref_conditions~load_ref(); 
+    int   min_ref_purchase      = internal_sale_data~load_coins();
+    int   default_cashback      = internal_sale_data~load_uint(32);
+    cell  refs_dict             = internal_sale_data~load_dict();
+    cell  ref_wallet_code       = internal_sale_data~load_ref(); 
 
     ;; check some integer values
     throw_unless(exc::int_out_of_range, (default_cashback > 0) & (sale_start_time > 0) & (sale_end_time > sale_start_time) &
