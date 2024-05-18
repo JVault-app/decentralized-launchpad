@@ -50,7 +50,7 @@ global int jettons_for_sale;
 
 
 () load_data() impure inline {
-    slice ds = get_data().begin_parse(); ;; data: 1 + 32 + 32 + 128 + 128 + 32 + 32 + 128 + 128 + 32 + 32 + 32 + 16 + 267 + 1 + 1 = 1022
+    slice ds = get_data().begin_parse(); ;; data: 1 + 32 + 32 + 128 + 128 + 32 + 32 + 128 + 128 + 32 + 32 + 32 + 16 + 267 + 1 + 1 + 1 = 1023
                                          ;; refs: collection_info + internal_ds + ref_conditions = 3
     
     storage::init?                 = ds~load_int(1);
@@ -78,7 +78,7 @@ global int jettons_for_sale;
 
     slice collection_info          = ds~load_ref().begin_parse(); ;; data: 267 + 267 = 534; refs: content + sft_item_code = 2
     storage::admin_address         = collection_info~load_msg_addr();
-    storage::creator_address         = collection_info~load_msg_addr();
+    storage::creator_address       = collection_info~load_msg_addr();
     storage::content               = collection_info~load_ref();
     storage::sft_item_code         = collection_info~load_ref();
 

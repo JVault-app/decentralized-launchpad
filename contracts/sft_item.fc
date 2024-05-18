@@ -142,8 +142,10 @@ global int   storage::change_invitee?;      ;; is changing user's invitee after 
                     storage::ref_data = in_msg_body~load_dict();
                 }
             }
-            elseif (cell_hash(ref_data) != cell_hash(storage::ref_data)) {
-                max_collected_ton = 0;  ;; changing invitee not allowed, so reject purchase
+            elseifnot (null?(storage::ref_data) | null?(ref_data)) {
+                if (cell_hash(ref_data) != cell_hash(storage::ref_data)) {
+                    max_collected_ton = 0;  ;; changing invitee not allowed, so reject purchase
+                }
             }
         }
 

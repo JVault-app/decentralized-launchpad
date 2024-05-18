@@ -75,6 +75,7 @@ cell get_sale_data(slice sender_address, slice sale_data, int transferred_jetton
     slice jetton_wallet_address = sale_data~load_msg_addr();
     int   jettons_added?        = 0;
     int   sale_finished?        = 0;
+    int   change_invitee?       = sale_data~load_int(1);
 
     slice admin_address         = my_address();
     slice owner_address         = sender_address;
@@ -145,6 +146,7 @@ cell get_sale_data(slice sender_address, slice sale_data, int transferred_jetton
                 .store_slice(jetton_wallet_address)
                 .store_int(jettons_added?, 1)
                 .store_int(sale_finished?, 1)
+                .store_int(change_invitee?, 1)
 
                 .store_ref( ;; collection_info
                     begin_cell()
