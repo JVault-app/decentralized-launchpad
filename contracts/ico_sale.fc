@@ -6,7 +6,7 @@
 global int   storage::init?;
 
 global slice storage::admin_address;           ;; Launchpad (royalty) address  (MsgAddress)
-global slice storage::creator_address;           ;; owner address (MsgAddress)
+global slice storage::creator_address;         ;; owner address (MsgAddress)
 global cell  storage::content;                 ;; collection content (Cell)
 global cell  storage::sft_item_code;           ;; NFT code (Cell)
 
@@ -343,7 +343,7 @@ builder store_pool_params_native_jetton(builder b, int jetton_root_workchain, in
     int query_id = in_msg_body.slice_empty?() ? cur_lt() : in_msg_body~load_uint(64);
 
     ifnot (storage::init?) {
-            ;; set jetton wallet address (used only once)
+        ;; set jetton wallet address (used only once)
         if (op == op::take_wallet_address) {
             throw_if(exc::already_inited, storage::init?);  
             throw_unless(exc::incorrect_sender, equal_slices(sender_address, storage::jetton_root_address));
@@ -619,7 +619,7 @@ slice get_wallet_address(slice owner_address) method_id {
          storage::init?,
 
         storage::admin_address,         ;; Launchpad (royalty) address  (MsgAddress)
-        storage::creator_address,         ;; owner address (MsgAddress)
+        storage::creator_address,       ;; owner address (MsgAddress)
         storage::content,               ;; collection content (Cell)
         storage::sft_item_code,         ;; NFT code (Cell)
 
