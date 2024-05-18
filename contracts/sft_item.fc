@@ -7,7 +7,7 @@
 ;; Default SBT
 global int   storage::index;
 global int   storage::init?;
-global slice storage::collection_address;
+global slice storage::sale_address;
 global slice storage::buyer_address;
 
 ;; Custom
@@ -21,13 +21,14 @@ global int   storage::cycle_length;         ;; time between unlocks in seconds
 global int   storage::cycles_number;        ;; number of unlocks excluding initial
 global cell  storage::ref_data;             ;; data about invitee
 global int   storage::refund_requested;
+global int   storage::change_invitee?;      ;; is changing user's invitee after first purchase allowed 
 
 
 () load_data() impure inline {
     slice ds = get_data().begin_parse();
 
     storage::index              = ds~load_uint(256);
-    storage::collection_address = ds~load_msg_addr();
+    storage::sale_address = ds~load_msg_addr();
     storage::init?              = false;
 
     if (ds.slice_bits() > 0) {
@@ -47,6 +48,7 @@ global int   storage::refund_requested;
         
         storage::ref_data          = internal_ds~load_dict();
         storage::refund_requested  = internal_ds~load_int(1);
+        storage::change_invitee?   = internal_ds~load_int(1);
     }
 }
 
@@ -55,7 +57,7 @@ global int   storage::refund_requested;
     set_data(
             begin_cell()
                 .store_uint(storage::index, 256) 
-                .store_slice(storage::collection_address)
+                .store_slice(storage::sale_address)
                 .store_slice(storage::buyer_address)
                 .store_ref(
                     begin_cell()
@@ -69,6 +71,7 @@ global int   storage::refund_requested;
                         .store_uint(storage::cycles_number, 16)
                         .store_dict(storage::ref_data)
                         .store_int(storage::refund_requested, 1)
+                        .store_int(storage::change_invitee?, 1)
                     .end_cell()
                 )
             .end_cell()
@@ -106,11 +109,12 @@ global int   storage::refund_requested;
     int query_id = in_msg_body~load_uint(64);
 
     if (op == op::update_sft_data) {
-        throw_unless(405, equal_slices(storage::collection_address, sender_address));
+        throw_unless(405, equal_slices(storage::sale_address, sender_address));
+
         int new_purchased_jettons = in_msg_body~load_coins();
         int new_collected_ton     = in_msg_body~load_coins();
         int max_collected_ton     = in_msg_body~load_coins();
-        slice buyer_address         = in_msg_body~load_msg_addr();
+        slice buyer_address       = in_msg_body~load_msg_addr();
 
         if (~ storage::init?) {
             storage::purchased_jettons  = new_purchased_jettons;
@@ -123,47 +127,62 @@ global int   storage::refund_requested;
             storage::first_unlock_size  = in_msg_body~load_uint(32);
             storage::cycle_length       = in_msg_body~load_uint(32);
             storage::cycles_number      = in_msg_body~load_uint(16);
+            storage::change_invitee?    = in_msg_body~load_int(1);
             storage::ref_data           = in_msg_body~load_dict();
             storage::refund_requested   = 0;
         }
         else {
-            storage::collected_ton += new_collected_ton;
             storage::purchased_jettons += new_purchased_jettons;
+            storage::collected_ton += new_collected_ton;
 
-            if ((storage::collected_ton > max_collected_ton) | (~ equal_slices(storage::buyer_address, buyer_address))) {
-                cell msg_body = begin_cell()
-                                    .store_uint(op::cancel_purchase, 32)
-                                    .store_uint(query_id, 64)
-                                    .store_uint(storage::index, 256)
-                                    .store_coins(new_purchased_jettons)
-                                    .store_coins(new_collected_ton)
-                                .end_cell();
-                send_cell_message(storage::collection_address, 0, msg_body, mode::carry_remaining_gas);
-
-                return ();
+            in_msg_body~skip_bits(32 + 32 + 32 + 16);
+            cell ref_data = in_msg_body~load_dict();
+            if (storage::change_invitee?) {
+                ifnot (null?(ref_data)) {
+                    storage::ref_data = in_msg_body~load_dict();
+                }
             }
-            else {
-                builder msg_body = begin_cell()
-                                        .store_uint(op::approve_purchase, 32)
-                                        .store_uint(query_id, 64)
-                                        .store_uint(storage::index, 256)
-                                        .store_coins(new_collected_ton)
-                                        .store_dict(storage::ref_data);
-                send_builder_message(storage::collection_address, 0, msg_body, mode::carry_remaining_gas);
-                save_data();
+            elseif (cell_hash(ref_data) != cell_hash(storage::ref_data)) {
+                max_collected_ton = 0;  ;; changing invitee not allowed, so reject purchase
             }
         }
 
-        ;; notify buyer
-        builder msg_body = begin_cell()
-                                .store_uint(op::transfer_notification, 32)
+        if ((storage::collected_ton > max_collected_ton) | (~ equal_slices(storage::buyer_address, buyer_address))) {
+            cell msg_body = begin_cell()
+                                .store_uint(op::cancel_purchase, 32)
                                 .store_uint(query_id, 64)
+                                .store_uint(storage::index, 256)
                                 .store_coins(new_purchased_jettons)
-                                .store_slice(storage::collection_address)
-                                .store_uint(0, 1);
-        send_builder_message(storage::buyer_address, 1, msg_body, mode::pay_fees_separately);
+                                .store_coins(new_collected_ton)
+                            .end_cell();
+            send_cell_message(storage::sale_address, 0, msg_body, mode::carry_remaining_balance);
 
-        return ();
+            return ();
+        }
+        else {
+            raw_reserve(min_tons_for_storage, 0);
+
+            ;; notify buyer
+            builder msg_body = begin_cell()
+                                    .store_uint(op::transfer_notification, 32)
+                                    .store_uint(query_id, 64)
+                                    .store_coins(new_purchased_jettons)
+                                    .store_slice(storage::sale_address)
+                                    .store_uint(0, 1);
+            send_builder_message(storage::buyer_address, gas::notify_buyer, msg_body, mode::simple);
+
+            ;; approve purchase
+            builder msg_body = begin_cell()
+                                    .store_uint(op::approve_purchase, 32)
+                                    .store_uint(query_id, 64)
+                                    .store_uint(storage::index, 256)
+                                    .store_coins(new_collected_ton)
+                                    .store_dict(storage::ref_data);
+            send_builder_message(storage::sale_address, 0, msg_body, mode::carry_remaining_balance);
+            
+            save_data();
+            return ();
+        }
     }
 
     if (op == op::claim) {
@@ -191,7 +210,7 @@ global int   storage::refund_requested;
                                 .store_uint(query_id, 64)
                                 .store_uint(storage::index, 256)
                                 .store_coins(available_jettons);
-        send_builder_message(storage::collection_address, 0, msg_body, mode::carry_remaining_gas);
+        send_builder_message(storage::sale_address, 0, msg_body, mode::carry_remaining_gas);
 
         storage::claimed_times = total_unlocks; 
         storage::claimed_jettons += available_jettons;
@@ -208,7 +227,7 @@ global int   storage::refund_requested;
                                 .store_uint(query_id, 64)
                                 .store_uint(storage::index, 256)
                                 .store_coins(storage::collected_ton);
-        send_builder_message(storage::collection_address, 0, msg_body, mode::carry_remaining_gas);
+        send_builder_message(storage::sale_address, 0, msg_body, mode::carry_remaining_gas);
         
         storage::refund_requested = true;
         save_data();
@@ -280,7 +299,7 @@ global int   storage::refund_requested;
                     .store_uint(op::report_static_data, 32)
                     .store_uint(query_id, 64)
                     .store_uint(storage::index, 256)
-                    .store_slice(storage::collection_address);
+                    .store_slice(storage::sale_address);
 
         send_cell_message(sender_address, 0, msg.end_cell(), mode::carry_remaining_gas);
         return ();
@@ -316,7 +335,7 @@ cell my_code() asm "MYCODE";
     int claimed_percent = storage::claimed_times ? storage::first_unlock_size : 0;
     claimed_percent += muldiv((storage::claimed_times - 1), percent_devider, storage::cycles_number);
     int claimed_jettons = muldiv(storage::purchased_jettons, claimed_percent, percent_devider);
-    return (storage::purchased_jettons - claimed_jettons, storage::buyer_address, storage::collection_address, my_code());
+    return (storage::purchased_jettons - claimed_jettons, storage::buyer_address, storage::sale_address, my_code());
 }
 
 ;; slice get_authority_address() method_id {
@@ -330,12 +349,12 @@ cell my_code() asm "MYCODE";
 ;; }
 
 
-(int, slice, slice, int, int, int, int, int, int, int, int, cell) get_storage_data() method_id {
+(int, slice, slice, int, int, int, int, int, int, int, int, cell, int) get_storage_data() method_id {
     load_data();
 
     return (
         storage::index,
-        storage::collection_address,
+        storage::sale_address,
         storage::buyer_address,
         storage::purchased_jettons,
         storage::collected_ton,
@@ -345,6 +364,7 @@ cell my_code() asm "MYCODE";
         storage::first_unlock_size,
         storage::cycle_length,
         storage::cycles_number,
-        storage::ref_data
+        storage::ref_data,
+        storage::change_invitee?
     );      
 }

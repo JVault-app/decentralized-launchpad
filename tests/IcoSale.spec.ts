@@ -111,7 +111,8 @@ describe('RefWallet', () => {
             minRefPurchase: toNano(50),
             defaultCashback: 1000,
             refsDict,
-            refWalletCode: refWalletCode
+            refWalletCode: refWalletCode,
+            changeInvitee: false,
         }
 
         ico = blockchain.openContract(IcoSale.createFromConfig(conf, icoSaleCode))

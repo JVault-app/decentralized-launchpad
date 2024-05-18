@@ -107,6 +107,7 @@ export type IcoSaleConfig = {
     defaultCashback: number;
     refsDict: Dictionary<Address, RefsDictValue>;
     refWalletCode: Cell; 
+    changeInvitee: boolean;
 };
 
 export type IcoSaleContent = {
@@ -140,6 +141,7 @@ export function IcoSaleConfigToCell(config: IcoSaleConfig): Cell {
             .storeAddress(config.jettonWalletAddress)
             .storeBit(false)
             .storeBit(false)
+            .storeBit(config.changeInvitee)
 
             .storeRef(
                 beginCell()
@@ -313,6 +315,7 @@ export class IcoSale implements Contract {
             jetton_wallet_address: stack.readAddressOpt(),
             jettons_added: stack.readBoolean(),
             sale_finished: stack.readBoolean(),
+            change_invitee: stack.readBoolean(),
             jettons_for_sale: stack.readBigNumber()
         };
     }

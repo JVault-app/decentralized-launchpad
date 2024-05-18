@@ -22,7 +22,8 @@ export type SftItemMessageConfig = {
     firstUnlockSize: number;
     cycleLength: number;
     cyclesNumber: number;
-    refData: Cell;
+    refData?: Cell;
+    changeInvitee: boolean;
 }
 
 export function SftItemMessageConfigToCell(config: SftItemMessageConfig): Cell {
@@ -37,6 +38,8 @@ export function SftItemMessageConfigToCell(config: SftItemMessageConfig): Cell {
                 .storeUint(config.firstUnlockSize, 32)
                 .storeUint(config.cycleLength, 32)
                 .storeUint(config.cyclesNumber, 16)
+                .storeBit(config.changeInvitee)
+                .storeMaybeRef(config.refData)
             .endCell();
 }
 
@@ -101,7 +104,8 @@ export class SbtNft implements Contract {
             first_unlock_size: stack.readNumber(),
             cycle_length: stack.readNumber(),
             cycles_number: stack.readNumber(),
-            ref_data: stack.readCell(),
+            ref_data: stack.readCellOpt(),
+            change_invitee: stack.readBoolean()
         }
     }
 }

@@ -43,6 +43,7 @@ global slice storage::jetton_vault_address;    ;; jetton vault address (MsgAddre
 global slice storage::jetton_wallet_address;   ;; jetton wallet address of this smc (MsgAddress)
 global int   storage::jettons_added?;          ;; Were jettons added to smart contract? (uint1)
 global int   storage::sale_finished?;          ;; Were collected TON sent to recipients? (uint1)
+global int   storage::change_invitee?;         ;; is changing user's invitee after first purchase allowed 
 
 
 global int jettons_for_sale;
@@ -73,6 +74,7 @@ global int jettons_for_sale;
     storage::jetton_wallet_address = ds~load_msg_addr();
     storage::jettons_added?        = ds~load_int(1);
     storage::sale_finished?        = ds~load_int(1);
+    storage::change_invitee?       = ds~load_int(1);
 
     slice collection_info          = ds~load_ref().begin_parse(); ;; data: 267 + 267 = 534; refs: content + sft_item_code = 2
     storage::admin_address         = collection_info~load_msg_addr();
@@ -121,6 +123,7 @@ global int jettons_for_sale;
             .store_slice(storage::jetton_wallet_address)
             .store_int(storage::jettons_added?, 1)
             .store_int(storage::sale_finished?, 1)
+            .store_int(storage::change_invitee?, 1)
 
             .store_ref( ;; collection_info
                 begin_cell()
@@ -212,7 +215,8 @@ builder store_pool_params_native_jetton(builder b, int jetton_root_workchain, in
                             .store_uint(storage::first_unlock_time, 32)
                             .store_uint(storage::first_unlock_size, 32)
                             .store_uint(storage::cycle_length, 32)
-                            .store_uint(storage::cycles_number, 16);
+                            .store_uint(storage::cycles_number, 16)
+                            .store_int(storage::change_invitee?, 1);
     if (cashback_factor) {
         sft_message = sft_message.store_maybe_ref(
             begin_cell().store_slice(ref_address).store_uint(cashback_factor, 32).end_cell()
@@ -239,10 +243,11 @@ builder store_pool_params_native_jetton(builder b, int jetton_root_workchain, in
 }
 
 
-() approve_purchase(int query_id, slice buyer_address, int received_ton, slice ref_data) impure inline {
+() approve_purchase(int query_id, slice buyer_address, int received_ton, cell ref_data) impure inline {
     ;; update "total cashback" for buyer's invitee
-    ifnot(slice_empty?(ref_data)) {
-        (slice ref_address, int cashback_factor) = (ref_data~load_msg_addr(), ref_data~load_uint(32));
+    ifnot(null?(ref_data)) {
+        slice ref_data_parsed = ref_data.begin_parse();
+        (slice ref_address, int cashback_factor) = (ref_data_parsed~load_msg_addr(), ref_data_parsed~load_uint(32));
         int cashback = muldiv(received_ton, cashback_factor, percent_devider);
         builder msg_body = begin_cell()
                             .store_uint(op::update_ref_wallet, 32)
@@ -435,7 +440,7 @@ builder store_pool_params_native_jetton(builder b, int jetton_root_workchain, in
             cancel_purchase(sft_owner_address, ton_to_return, coins_amount);
         }
         if (op == op::approve_purchase) {
-            slice ref_data = in_msg_body~load_dict().begin_parse();
+            cell ref_data = in_msg_body~load_maybe_ref();
             approve_purchase(query_id, sft_owner_address, coins_amount, ref_data);
         }
 
@@ -611,8 +616,8 @@ slice get_wallet_address(slice owner_address) method_id {
 ;; }
 
 
-(int, slice, slice, cell, cell, cell, cell, int, int, cell, cell, int, int, 
- int, int, int, int, int, int, int, int, int, int, slice, slice, slice, slice, int, int, int) get_storage_data() method_id {
+(int, slice, slice, cell, cell, cell, cell, int, int, cell, cell, int, int, int, int,
+ int, int, int, int, int, int, int, int, slice, slice, slice, slice, int, int, int, int) get_storage_data() method_id {
     load_data();
     
     return (
@@ -653,8 +658,9 @@ slice get_wallet_address(slice owner_address) method_id {
         storage::jetton_vault_address,  ;; jetton vault address (MsgAddress)
 
         storage::jetton_wallet_address, ;; jetton wallet address of this smc (MsgAddress)
-        storage::jettons_added?,        ;; Were jettons added to smart contract? (uint1)
-        storage::sale_finished?,        ;; Were collected TON sent to recipients? (uint1)
+        storage::jettons_added?,        ;; Were jettons added to smart contract? (int1)
+        storage::sale_finished?,        ;; Were collected TON sent to recipients? (int1)
+        storage::change_invitee?,       ;; is changing user's invitee after first purchase allowed? (int1)
         jettons_for_sale
     );
 }
