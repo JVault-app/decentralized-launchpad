@@ -96,7 +96,7 @@ refs_dict$_
 = RefsDict;
 
 commission_factors$_
-    _:(HashmapE 128 uint32)  // (minimum collected TON): (commission_factor)
+    _:(Hashmap 128 uint32)  // (minimum collected TON): (commission_factor)
 = CommissionFactors;
 
 // =======================================================================
