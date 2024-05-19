@@ -111,7 +111,7 @@ describe('Ico', () => {
 
             jettonRootAddress: jettonRootAddress.address,
             nativeVaultAddress: nativeVaultAddress.address,
-            jettonVaultAddress: jettonRootAddress.address,
+            jettonVaultAddress: jettonVaultAddress.address,
             purchaseConditions,
             commission_factors,
 
@@ -383,11 +383,27 @@ describe('Ico', () => {
 
         blockchain.now = conf.saleEndTime + 100000
         res = await ico.sendEndSell(user1.getSender(), toNano(1))
-        printTransactionFees(res.transactions)
+        // printTransactionFees(res.transactions)
         // console.log(res.events)
         expect(res.transactions).toHaveTransaction({
             to: jettonVaultAddress.address,
+            op: OpCodes.TRANSFER_NOTIFICATION
         })
+
+        expect((await ico.getStorageData()).ton_collected).toBeGreaterThanOrEqual((await ico.getStorageData()).min_ton_collected)
+
+        res = await user1Claim.sendRequestRefund(user1.getSender(), toNano("0.1"))
+        expect(res.transactions).toHaveTransaction({
+            to: ico.address,
+            exitCode: ErrorCodes.saleSucceed
+        })
+
+        let balanceBefore = await user1JettonWalletAddress.getJettonBalance()
+        let claimAmount = (await user1Claim.getStorageData()).purchased_jettons
+        res = await user1Claim.sendClaim(user1.getSender(), toNano("0.1"))
+        printTransactionFees(res.transactions)
+        console.log(claimAmount)
+        expect(await user1JettonWalletAddress.getJettonBalance()).toEqual(claimAmount + balanceBefore)
         // console.log(res.events)
         // console.log(res.transactions)
     })

@@ -71,7 +71,7 @@ export class SbtNft implements Contract {
         });
     }
 
-    async sendRequestRefund(provider: ContractProvider, via: Sender, value: bigint, queryId: Maybe<number | bigint>) {
+    async sendRequestRefund(provider: ContractProvider, via: Sender, value: bigint, queryId?: Maybe<number | bigint>) {
         await provider.internal(via, {
             value,
             sendMode: SendMode.PAY_GAS_SEPARATELY,

@@ -427,7 +427,7 @@ builder store_pool_params_native_jetton(builder b, int jetton_root_workchain, in
         int coins_amount = in_msg_body~load_coins();
 
         if (op == op::claim) {
-            throw_unless(exc::sale_failed, storage::ton_collected < storage::min_ton_collected);
+            throw_unless(exc::sale_failed, storage::ton_collected >= storage::min_ton_collected);
             throw_unless(exc::sale_not_finished, storage::sale_finished?);
 
             send_jettons(query_id, coins_amount, sft_buyer_address, sft_buyer_address, storage::jetton_wallet_address, 0, 
@@ -435,7 +435,7 @@ builder store_pool_params_native_jetton(builder b, int jetton_root_workchain, in
         }
         if (op == op::request_refund) {
             throw_unless(exc::sale_not_finished, now() > storage::sale_end_time);
-            throw_unless(exc::sale_succeed, storage::ton_collected >= storage::min_ton_collected);
+            throw_unless(exc::sale_succeed, storage::ton_collected < storage::min_ton_collected);
             send_message_with_comment(sft_buyer_address, coins_amount, "Tokensale was unsuccessful", mode::simple);
         }
         if (op == op::cancel_purchase) {
