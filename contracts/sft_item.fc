@@ -154,6 +154,7 @@ global int   storage::change_invitee?;      ;; is changing user's invitee after 
                                 .store_uint(op::cancel_purchase, 32)
                                 .store_uint(query_id, 64)
                                 .store_uint(storage::index, 256)
+                                .store_slice(storage::buyer_address)
                                 .store_coins(new_purchased_jettons)
                                 .store_coins(new_collected_ton)
                             .end_cell();
@@ -178,9 +179,10 @@ global int   storage::change_invitee?;      ;; is changing user's invitee after 
                                     .store_uint(op::approve_purchase, 32)
                                     .store_uint(query_id, 64)
                                     .store_uint(storage::index, 256)
+                                    .store_slice(storage::buyer_address)
                                     .store_coins(new_collected_ton)
                                     .store_dict(storage::ref_data);
-            send_builder_message(storage::sale_address, 0, msg_body, mode::carry_remaining_balance);
+            send_cell_message(storage::sale_address, 0, msg_body.end_cell(), mode::carry_remaining_balance);
             
             save_data();
             return ();
@@ -211,8 +213,9 @@ global int   storage::change_invitee?;      ;; is changing user's invitee after 
                                 .store_uint(op::claim, 32)
                                 .store_uint(query_id, 64)
                                 .store_uint(storage::index, 256)
+                                .store_slice(storage::buyer_address)
                                 .store_coins(available_jettons);
-        send_builder_message(storage::sale_address, 0, msg_body, mode::carry_remaining_gas);
+        send_cell_message(storage::sale_address, 0, msg_body.end_cell(), mode::carry_remaining_gas);
 
         storage::claimed_times = total_unlocks; 
         storage::claimed_jettons += available_jettons;
@@ -228,8 +231,9 @@ global int   storage::change_invitee?;      ;; is changing user's invitee after 
                                 .store_uint(op::request_refund, 32)
                                 .store_uint(query_id, 64)
                                 .store_uint(storage::index, 256)
+                                .store_slice(storage::buyer_address)
                                 .store_coins(storage::collected_ton);
-        send_builder_message(storage::sale_address, 0, msg_body, mode::carry_remaining_gas);
+        send_cell_message(storage::sale_address, 0, msg_body.end_cell(), mode::carry_remaining_gas);
         
         storage::refund_requested = true;
         save_data();

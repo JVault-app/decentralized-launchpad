@@ -257,14 +257,16 @@ update_sft_message#dca3da4c
 // В случае успешной проверки обновляются данные в контракте, и отправляется сообщение approve purchase
 approve_purchase_message#9f48d36d
     query_id:uint64
-    sbt_index:uint256
+    sft_index:uint256
+    sft_buyer:MsgAddress
     received_ton:Coins
     ref_data:(Maybe ^[ref_address:MsgAddress cashback_factor:uint32])
 = InternalMessageBody;
 // В случае ошибки отправляется сообщение cancel purchase, далее отправленные ранее TON возвращаются пользователю
 cancel_purchase_message#7d1d7445
     query_id:uint64
-    sbt_index:uint256
+    sft_index:uint256
+    sft_buyer:MsgAddress
     purchased_jettons:Coins
     ton_to_return:Coins
 = InternalMessageBody;
@@ -295,6 +297,7 @@ sft_owner_claim_request#a769de27 query_id:uint64 = InternalMsgBody;
 sft_item_claim_request#a769de27
     query_id:uint64
     index:uint256
+    buyer:MsgAddress
     available_jettons:Coins
 = InternalMessageBody;
 // На контракте ico_sale.fc проверяется, что сейл был завершен успешно (собран минимальный объем средств), и если да,
@@ -361,6 +364,7 @@ sft_owner_refund_request#1075d7a3 query_id:uint64 = InternalMsgBody;
 sft_item_refund_request#1075d7a3
     query_id:uint64
     index:uint256
+    buyer:MsgAddress
     collected_ton:Coins
 = InternalMsgBody;
 // На контракте ico_sale.fc проверяется, что сейл был завершен НЕуспешно (минимальный объем средств собран не был), и если да,
