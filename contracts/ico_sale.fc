@@ -200,9 +200,9 @@ builder store_pool_params_native_jetton(builder b, int jetton_root_workchain, in
     throw_unless(exc::more_than_max_purchase, msg_value <= max_purchase_ton);
     throw_unless(exc::not_enough_jettons, storage::jettons_sold < jettons_for_sale);
 
-    (int worckchain, int buyer_address_int) = parse_std_addr(request_address);
+    (int worckchain, int requester_address_int) = parse_std_addr(request_address);
 
-    cell sft_state_init = calculate_nft_item_state_init(buyer_address_int, storage::sft_item_code, my_address());
+    cell sft_state_init = calculate_nft_item_state_init(requester_address_int, storage::sft_item_code, my_address(), 256);
     slice sft_address = get_address_by_state_init(sft_state_init);
     
     builder sft_message = begin_cell()
@@ -392,7 +392,7 @@ builder store_pool_params_native_jetton(builder b, int jetton_root_workchain, in
             
             cell wl_sbt_code = purchase_conditions_parsed~load_ref();
             slice wl_collection_address = purchase_conditions_parsed~load_msg_addr();
-            slice expected_wl_sbt_address = get_address_by_state_init(calculate_nft_item_state_init(wl_sbt_index, wl_sbt_code, wl_collection_address));
+            slice expected_wl_sbt_address = get_address_by_state_init(calculate_nft_item_state_init(wl_sbt_index, wl_sbt_code, wl_collection_address, 64));
 
             throw_unless(exc::incorrect_sender, equal_slices(expected_wl_sbt_address, sender_address));
             buyer_address = owner_address;
@@ -422,7 +422,7 @@ builder store_pool_params_native_jetton(builder b, int jetton_root_workchain, in
     ;; messages from SBT
     if ((op == op::claim) | (op == op::cancel_purchase) | (op == op::approve_purchase) | (op == op::request_refund)) {
         int sft_index = in_msg_body~load_uint(256);
-        slice expected_address = get_address_by_state_init(calculate_nft_item_state_init(sft_index, storage::sft_item_code, my_address()));
+        slice expected_address = get_address_by_state_init(calculate_nft_item_state_init(sft_index, storage::sft_item_code, my_address(), 256));
         throw_unless(exc::incorrect_sender, equal_slices(expected_address, sender_address));
         
         ;; slice sft_requester_address = begin_cell().store_uint(1024, 11).store_uint(sft_index, 256).end_cell().begin_parse();
@@ -546,7 +546,7 @@ builder store_pool_params_native_jetton(builder b, int jetton_root_workchain, in
 slice get_wallet_address(slice owner_address) method_id {
     load_data();
     var(_, index) = parse_std_addr(owner_address);
-    cell state_init = calculate_nft_item_state_init(index, storage::sft_item_code, my_address());
+    cell state_init = calculate_nft_item_state_init(index, storage::sft_item_code, my_address(), 256);
     return get_address_by_state_init(state_init);
 }
 

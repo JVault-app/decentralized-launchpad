@@ -48,8 +48,8 @@ cell  preload_ref_index(slice s, int n) asm "PLDREFVAR";
 }
 
 
-cell calculate_nft_item_state_init(int item_index, cell nft_item_code, slice collection_address) inline {
-    cell data = begin_cell().store_uint(item_index, 256).store_slice(collection_address).end_cell();
+cell calculate_nft_item_state_init(int item_index, cell nft_item_code, slice collection_address, int index_size) inline {
+    cell data = begin_cell().store_uint(item_index, index_size).store_slice(collection_address).end_cell();
     return begin_cell().store_uint(0, 2).store_maybe_ref(nft_item_code).store_maybe_ref(data).store_uint(0, 1).end_cell();
 }
 
