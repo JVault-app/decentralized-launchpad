@@ -210,15 +210,15 @@ export class IcoSale implements Contract {
 
     }
 
-    static createEndSellMessage() {
-        return beginCell().storeUint(OpCodes.END_SALE, 32).endCell()
+    static createEndSellMessage(queryId? : number | bigint) {
+        return beginCell().storeUint(OpCodes.END_SALE, 32).storeUint(queryId ?? 0, 64).endCell()
     }
 
-    async sendEndSell(provider: ContractProvider, via: Sender, value: bigint) {
+    async sendEndSell(provider: ContractProvider, via: Sender, value: bigint, queryId? : number | bigint) {
         await provider.internal(via, {
             value,
             sendMode: SendMode.PAY_GAS_SEPARATELY,
-            body: IcoSale.createEndSellMessage(),
+            body: IcoSale.createEndSellMessage(queryId),
         });
     }
 
