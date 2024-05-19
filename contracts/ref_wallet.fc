@@ -60,6 +60,7 @@ global int   storage::collected_ton;
         throw_unless(exc::incorrect_sender, equal_slices(sender_address, storage::sale_address));
         storage::collected_ton += in_msg_body~load_coins();
 
+        send_builder_message(in_msg_body~load_msg_addr(), 0, begin_cell().store_uint(op::excesses, 32).store_uint(query_id, 64), mode::carry_remaining_gas);
         save_data();
         return ();
     }
@@ -74,10 +75,9 @@ global int   storage::collected_ton;
                                     .store_uint(query_id, 64)
                                     .store_slice(storage::owner_address)
                                     .store_coins(storage::collected_ton);
-        send_builder_message(storage::sale_address, gas::claim_ref, claim_msg_body, mode::simple);  
-        send_builder_message(storage::owner_address, 0, begin_cell().store_uint(op::excesses, 32).store_uint(query_id, 64), mode::carry_remaining_balance);
+        send_builder_message(storage::sale_address, 0, claim_msg_body, mode::carry_remaining_balance);  
+       
         storage::collected_ton = 0;
-
         save_data();
         return (); 
     }

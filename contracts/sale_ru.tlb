@@ -282,6 +282,7 @@ ref_wallet_deploy_body$0 = InternalMsgBody;
 update_ref_wallet_request#940298fc
     query_id:uint64
     cashback:Coins
+    buyer_address:MsgAddress
 = InternalMsgBody;
 
 // --

@@ -93,6 +93,7 @@ export class SbtNft implements Contract {
         let { stack } = await provider.get('get_storage_data', []);
         return {
             index: stack.readBigNumber(),
+            init: stack.readBoolean(),
             ico_address: stack.readAddress(),
             owner_address: stack.readAddress(),
             purchased_jettons: stack.readBigNumber(),

@@ -245,16 +245,7 @@ builder store_pool_params_native_jetton(builder b, int jetton_root_workchain, in
 
 () approve_purchase(int query_id, slice buyer_address, int received_ton, cell ref_data) impure inline {
     ;; update "total cashback" for buyer's invitee
-    ifnot(null?(ref_data)) {
-        slice ref_data_parsed = ref_data.begin_parse();
-        (slice ref_address, int cashback_factor) = (ref_data_parsed~load_msg_addr(), ref_data_parsed~load_uint(32));
-        int cashback = muldiv(received_ton, cashback_factor, percent_devider);
-        builder msg_body = begin_cell()
-                            .store_uint(op::update_ref_wallet, 32)
-                            .store_uint(query_id, 64)
-                            .store_coins(cashback);
-        send_builder_message(ref_address, gas::update_wallet, msg_body, mode::simple);
-    }
+    raw_reserve(0, 4);
     
     ;; deploy buyer's ref_wallet
     if (received_ton > storage::min_ref_purchase) {
@@ -262,6 +253,20 @@ builder store_pool_params_native_jetton(builder b, int jetton_root_workchain, in
         send_deploy_message(get_address_by_state_init(ref_wallet_state_init), gas::deploy_ref, ref_wallet_state_init, null(), mode::simple);
     }
 
+    ifnot(null?(ref_data)) {
+        slice ref_data_parsed = ref_data.begin_parse();
+        (slice ref_address, int cashback_factor) = (ref_data_parsed~load_msg_addr(), ref_data_parsed~load_uint(32));
+        int cashback = muldiv(received_ton, cashback_factor, percent_devider);
+        builder msg_body = begin_cell()
+                            .store_uint(op::update_ref_wallet, 32)
+                            .store_uint(query_id, 64)
+                            .store_coins(cashback)
+                            .store_slice(buyer_address);
+        send_builder_message(ref_address, 0, msg_body, mode::carry_remaining_balance);
+    }
+    else {
+        send_builder_message(buyer_address, 0, begin_cell().store_uint(op::excesses, 32).store_uint(query_id, 64), mode::carry_remaining_balance);
+    }
     return ();
 }
 
@@ -344,8 +349,8 @@ builder store_pool_params_native_jetton(builder b, int jetton_root_workchain, in
 
     load_data();
 
-    int op = in_msg_body.slice_empty?() ? 0 : in_msg_body~load_uint(32);
-    int query_id = in_msg_body.slice_empty?() ? cur_lt() : in_msg_body~load_uint(64);
+    int op = in_msg_body.slice_bits() >= 32 ? in_msg_body~load_uint(32) : 0;
+    int query_id = in_msg_body.slice_bits() >= 64 ? in_msg_body~load_uint(64) : cur_lt();
 
     ifnot (storage::init?) {
         ;; set jetton wallet address (used only once)
@@ -450,13 +455,12 @@ builder store_pool_params_native_jetton(builder b, int jetton_root_workchain, in
     ;; message from ref_wallet
     if (op == op::claim_ref) {
         throw_if(exc::sale_failed, storage::ton_collected < storage::min_ton_collected);
-
         slice ref_owner_address = in_msg_body~load_msg_addr();
         slice expected_address = get_address_by_state_init(calculate_ref_wallet_state_init(ref_owner_address, storage::ref_wallet_code, storage::sale_end_time));
         throw_unless(exc::incorrect_sender, equal_slices(expected_address, sender_address));
 
         int ref_reward = in_msg_body~load_coins();
-        send_message_with_comment(ref_owner_address, ref_reward, "Cashback from referrals on JVault launchpad", mode::simple);
+        send_message_with_comment(ref_owner_address, ref_reward, "Cashback from referrals on JVault launchpad", mode::carry_remaining_gas);
         return ();
     }
 

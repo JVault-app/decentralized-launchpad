@@ -171,7 +171,7 @@ global int   storage::change_invitee?;      ;; is changing user's invitee after 
                                     .store_coins(new_purchased_jettons)
                                     .store_slice(storage::sale_address)
                                     .store_uint(0, 1);
-            send_builder_message(storage::buyer_address, gas::notify_buyer, msg_body, mode::simple);
+            send_builder_message(storage::buyer_address, 0, msg_body, mode::pay_fees_separately);
 
             ;; approve purchase
             builder msg_body = begin_cell()
@@ -351,10 +351,11 @@ cell my_code() asm "MYCODE";
 ;; }
 
 
-(int, slice, slice, int, int, int, int, int, int, int, int, cell, int) get_storage_data() method_id {
+(int, int, slice, slice, int, int, int, int, int, int, int, int, cell, int) get_storage_data() method_id {
     load_data();
 
     return (
+        storage::init?,
         storage::index,
         storage::sale_address,
         storage::buyer_address,
