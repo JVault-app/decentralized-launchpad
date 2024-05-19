@@ -86,12 +86,12 @@ global int jettons_for_sale;
     storage::jetton_root_address   = internal_ds~load_msg_addr();
     storage::native_vault_address  = internal_ds~load_msg_addr();
     storage::jetton_vault_address  = internal_ds~load_msg_addr();
-    storage::purchase_conditions   = internal_ds~load_ref();
-    storage::commission_factors    = internal_ds~load_ref();
     
     storage::min_ref_purchase      = internal_ds~load_coins();
     ;; storage::default_discount      = ref_conditions~load_uint(32);
     storage::default_cashback      = internal_ds~load_uint(32);
+    storage::purchase_conditions   = internal_ds~load_ref();
+    storage::commission_factors    = internal_ds~load_ref();
     storage::refs_dict             = internal_ds~load_dict();
     storage::ref_wallet_code       = internal_ds~load_ref(); 
 
@@ -138,11 +138,10 @@ global int jettons_for_sale;
                     .store_slice(storage::jetton_root_address)
                     .store_slice(storage::native_vault_address)
                     .store_slice(storage::jetton_vault_address)
+                    .store_coins(storage::min_ref_purchase)
+                    .store_uint(storage::default_cashback, 32)
                     .store_ref(storage::purchase_conditions)
                     .store_ref(storage::commission_factors)
-                    .store_coins(storage::min_ref_purchase)
-                    ;; .store_uint(storage::default_discount, 32)
-                    .store_uint(storage::default_cashback, 32)
                     .store_dict(storage::refs_dict)
                     .store_ref(storage::ref_wallet_code)
                 .end_cell()
@@ -265,7 +264,7 @@ builder store_pool_params_native_jetton(builder b, int jetton_root_workchain, in
         send_builder_message(ref_address, 0, msg_body, mode::carry_remaining_balance);
     }
     else {
-        send_builder_message(buyer_address, 0, begin_cell().store_uint(op::excesses, 32).store_uint(query_id, 64), mode::carry_remaining_balance);
+        send_excess(buyer_address, query_id, 0, mode::carry_remaining_balance);
     }
     return ();
 }
@@ -550,6 +549,11 @@ slice get_wallet_address(slice owner_address) method_id {
     return get_address_by_state_init(state_init);
 }
 
+slice get_ref_address(slice owner_address) method_id {
+    load_data();
+    cell state_init = calculate_ref_wallet_state_init(owner_address, storage::ref_wallet_code, storage::sale_end_time);
+    return get_address_by_state_init(state_init);
+}
 
 
 ;; ;; SBT

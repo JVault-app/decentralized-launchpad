@@ -158,10 +158,10 @@ export function IcoSaleConfigToCell(config: IcoSaleConfig): Cell {
                     .storeAddress(config.jettonRootAddress)
                     .storeAddress(config.nativeVaultAddress)
                     .storeAddress(config.jettonVaultAddress)
-                    .storeRef(beginCell().store(storePurchaseConditionsRoot(config.purchaseConditions)).endCell())
-                    .storeDict(config.commission_factors, Dictionary.Keys.BigUint(128), Dictionary.Values.Uint(32))
                     .storeCoins(config.minRefPurchase)
                     .storeUint(config.defaultCashback, 32)
+                    .storeRef(beginCell().store(storePurchaseConditionsRoot(config.purchaseConditions)).endCell())
+                    .storeRef(beginCell().storeDictDirect(config.commission_factors, Dictionary.Keys.BigUint(128), Dictionary.Values.Uint(32)))
                     .storeDict(config.refsDict, AddressHashParser(), RefsDictValueParser())
                     .storeRef(config.refWalletCode)
                 .endCell()
@@ -271,6 +271,11 @@ export class IcoSale implements Contract {
 
     async getWalletAddress(provider: ContractProvider, owner: Address): Promise<Address> {
         let { stack } = await provider.get('get_wallet_address', [{ type: 'slice', cell: beginCell().storeAddress(owner).endCell() }])
+        return stack.readAddress()
+    }
+
+    async getRefAddress(provider: ContractProvider, owner: Address): Promise<Address> {
+        let { stack } = await provider.get('get_ref_address', [{ type: 'slice', cell: beginCell().storeAddress(owner).endCell() }])
         return stack.readAddress()
     }
 
