@@ -112,3 +112,19 @@ slice get_address_by_state_init(cell state_init) inline {
 
     return send_cell_message(jetton_wallet_address, msg_value, msg_body, sending_mode);
 }
+
+;; taken from Openlib (https://github.com/continuation-team/openlib.func/blob/main/openlib.func)
+builder store_number10(builder b, int x) asm """
+  ZERO                                                        // b x i=0
+  SWAP                                                        // b i=0 x
+  UNTIL:<{                                                    // b i x
+    10 PUSHINT DIVMOD                                         // b i x r
+    48 ADDCONST                                               // b i x r
+    s3 s1 s3 XCHG3                                            // r b x i
+    INC                                                       // r b x i
+    s1 s0 XCPU                                                // r b i x x
+    ISZERO
+  }>
+  DROP
+  REPEAT:<{ 8 STU }>                                          // ..rrr.. b i
+""";

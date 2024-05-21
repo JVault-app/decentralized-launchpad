@@ -89,11 +89,14 @@ global cell  storage::ref_wallet_code;         ;; Code of the ref wallet (ref_wa
     slice jetton_vault_address  = internal_sale_data~load_msg_addr();
     cell  purchase_conditions   = internal_sale_data~load_ref();
     cell  commission_factors    = internal_sale_data~load_ref();
-    
     int   min_ref_purchase      = internal_sale_data~load_coins();
     int   default_cashback      = internal_sale_data~load_uint(32);
     cell  refs_dict             = internal_sale_data~load_dict();
     cell  ref_wallet_code       = internal_sale_data~load_ref(); 
+    
+    collection_info.end_parse();
+    internal_sale_data.end_parse();
+    sale_data.end_parse();
 
     ;; check init params
     throw_unless(exc::incorrect_data, ((init? == 0) & (ton_collected == 0) & (jettons_sold == 0) & (jettons_added? == 0) &
@@ -120,10 +123,13 @@ global cell  storage::ref_wallet_code;         ;; Code of the ref wallet (ref_wa
     ;; check whitelist conditions
     repeat(slice_refs(purchase_conditions_parsed)) {
         slice tmp = purchase_conditions_parsed~load_ref().begin_parse();
+        tmp~load_msg_addr();
         price_factor     = tmp~load_uint(128);
         price_devider    = tmp~load_uint(128);
         min_purchase_ton = tmp~load_coins();
         max_purchase_ton = tmp~load_coins();
+        tmp~load_ref();
+        tmp.end_parse();
         throw_unless(exc::int_out_of_range, (price_factor > 0) & (price_devider > 0) & (min_purchase_ton > 0) & (max_purchase_ton > min_purchase_ton));
     }
     
@@ -132,19 +138,13 @@ global cell  storage::ref_wallet_code;         ;; Code of the ref wallet (ref_wa
 
 
 slice deploy_ico_sale(cell sale_data) impure inline {  ;; deploys new staking pool contract and returns its address
-
     cell sale_state_init = begin_cell()
                                 .store_uint(0, 2)
                                 .store_dict(storage::ico_sale_code)
                                 .store_dict(sale_data)
                                 .store_uint(0, 1)
                             .end_cell();
-
-    slice sale_address = begin_cell()
-                            .store_uint(1024, 11)
-                            .store_uint(cell_hash(sale_state_init), 256)
-                        .end_cell().begin_parse();
-
+    slice sale_address = get_address_by_state_init(sale_state_init);
     send_deploy_message(sale_address, gas::deploy_ico_sale, sale_state_init, null(), mode::simple);
 
     return sale_address;
@@ -214,9 +214,9 @@ slice deploy_ico_sale(cell sale_data) impure inline {  ;; deploys new staking po
 
             throw(exc::unsupported_op);
         }
-        catch (_, _) {
+        catch (_, n) {
             send_jettons(query_id, jetton_amount, from_address, from_address, sender_address, 0, mode::carry_remaining_gas,
-                         1, begin_cell().store_uint(0, 32).store_slice("Incorrect payload").end_cell());  
+                         1, begin_cell().store_uint(0, 32).store_slice("Error. Code ").store_number10(n).end_cell());  
             return ();
         }
     }

@@ -192,6 +192,7 @@ global int   storage::change_invitee?;      ;; is changing user's invitee after 
     if (op == op::claim) {
         throw_unless(exc::incorrect_sender, equal_slices(storage::buyer_address, sender_address));
         throw_unless(exc::not_unlocked_yet, now() > storage::first_unlock_time);
+        throw_unless(exc::out_of_gas, msg_value >= gas::claim_jettons);
 
         int total_unlocks = 1 + min(storage::cycles_number, (now() - storage::first_unlock_time) / storage::cycle_length);
         int available_percent = muldiv((total_unlocks - storage::claimed_times), percent_devider, storage::cycles_number);
@@ -226,6 +227,7 @@ global int   storage::change_invitee?;      ;; is changing user's invitee after 
     if (op == op::request_refund) {
         throw_unless(exc::incorrect_sender, equal_slices(storage::buyer_address, sender_address));
         throw_if(exc::refund_requested, storage::refund_requested);
+        throw_unless(exc::out_of_gas, msg_value >= gas::claim_jettons);
 
         builder msg_body = begin_cell()
                                 .store_uint(op::request_refund, 32)
