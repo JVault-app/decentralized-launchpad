@@ -105,6 +105,7 @@ export class SbtNft implements Contract {
             cycle_length: stack.readNumber(),
             cycles_number: stack.readNumber(),
             ref_data: stack.readCellOpt(),
+            refund_requested: stack.readBoolean(),
             change_invitee: stack.readBoolean()
         }
     }

@@ -8,7 +8,7 @@ import { JettonWallet } from '../wrappers/JettonWallet';
 import { JettonMinter } from '../wrappers/JettonMinter';
 import { SbtSingle } from '../wrappers/SbtSingle';
 import { randomAddress } from '@ton-community/test-utils';
-import { ErrorCodes, OpCodes } from '../wrappers/helpers/constants';
+import { ErrorCodes, OpCodes, PERCENT_DEVIDER } from '../wrappers/helpers/constants';
 import { SbtNft } from '../wrappers/SftItem';
 
 describe('Ico', () => {
@@ -100,9 +100,9 @@ describe('Ico', () => {
             liquidityPartJetton: 40000000,
 
             firstUnlockTime: nowSetting + 12000,
-            firstUnlockSize: toNano(1),
+            firstUnlockSize: (PERCENT_DEVIDER / 10n),  // first unlock = 10%
             cycleLength: 3600,
-            cyclesNumber: 10,
+            cyclesNumber: 10,  // next unlocks = 9%
 
             adminAddress: adminAddress.address,
             ownerAddress: ownerAddress.address,
@@ -409,12 +409,22 @@ describe('Ico', () => {
 
         blockchain.now = conf.firstUnlockTime + 1
 
-        let claimAmount = (await user1Claim.getStorageData()).purchased_jettons
-        res = await user1Claim.sendClaim(user1.getSender(), toNano("0.1"))
-        printTransactionFees(res.transactions)
-        console.log(claimAmount)
-        console.log((await user1Claim.getStorageData()).purchased_jettons > await user1JettonWalletAddress.getJettonBalance())
-        expect(await user1JettonWalletAddress.getJettonBalance()).toEqual(claimAmount > conf.firstUnlockSize ? conf.firstUnlockSize : claimAmount)
+        const firstUnlockPart = Number(conf.firstUnlockSize) / Number(PERCENT_DEVIDER);
+        const vestingUnlockPart = (1 - firstUnlockPart) / conf.cyclesNumber;
+        let purchasedAmount = Number((await user1Claim.getStorageData()).purchased_jettons);
+        // console.log(purchasedAmount);
+        let total_claimed_amount = "0";
+        for (let i = 0; i <= conf.cyclesNumber; ++i) {
+            res = await user1Claim.sendClaim(user1.getSender(), toNano("0.1"));
+            // printTransactionFees(res.transactions);
+            total_claimed_amount = Number(await user1JettonWalletAddress.getJettonBalance()).toFixed(0);
+            let expected_amount = (Number(purchasedAmount) * (firstUnlockPart + vestingUnlockPart * i)).toFixed(0);
+            // console.log(total_claimed_amount);
+            // console.log(expected_amount);
+            expect(total_claimed_amount).toEqual(expected_amount);
+            blockchain.now += conf.cycleLength;
+        }
+        expect(total_claimed_amount).toEqual(purchasedAmount.toFixed(0));
 
         // let user2ClaimBalance = (await user2ClaimWl.getStorageData()).purchased_jettons
         // res = await user2ClaimWl.sendClaim(user2.getSender(), toNano("0.1"));

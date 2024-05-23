@@ -96,3 +96,5 @@ export const ErrorCodes = {
     unsupportedOp: 0xffff
   };
   
+
+  export const PERCENT_DEVIDER = 100000000n;

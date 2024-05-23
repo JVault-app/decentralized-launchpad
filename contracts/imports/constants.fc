@@ -111,7 +111,7 @@ const int gas::provide_ton     = 400000000;
 const int gas::provide_jetton  = 400000000;
 
 const int gas::notify_buyer    = 10000000;
-const int gas::claim_jettons   = 42000000;
+const int gas::claim_jettons   = 60000000;
 
 const int gas::update_wallet   = 20000000;
 const int gas::claim_ref       = 20000000;

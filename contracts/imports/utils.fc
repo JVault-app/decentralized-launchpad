@@ -58,8 +58,8 @@ cell  preload_ref_index(slice s, int n) asm "PLDREFVAR";
 }
 
 
-cell calculate_nft_item_state_init(int item_index, cell nft_item_code, slice collection_address) inline {
-    cell data = begin_cell().store_uint(item_index, 256).store_slice(collection_address).end_cell();
+cell calculate_nft_item_state_init(int item_index, cell nft_item_code, slice collection_address, int index_size) inline {
+    cell data = begin_cell().store_uint(item_index, index_size).store_slice(collection_address).end_cell();
     return begin_cell().store_uint(0, 2).store_maybe_ref(nft_item_code).store_maybe_ref(data).store_uint(0, 1).end_cell();
 }
 
@@ -94,15 +94,9 @@ slice get_address_by_state_init(cell state_init) inline {
     }
     msg_body = msg_body.store_uint(0, 1)
                         .store_coins(forward_ton_amount)
-                        .store_uint(1, 1);
-
-    ifnot(null?(forward_payload)) {
-        msg_body = msg_body.store_dict(forward_payload);
-    }
-    else {
-        msg_body = msg_body.store_uint(0, 1);
-    }
-
+                        .store_uint(1, 1)
+                        .store_maybe_ref(forward_payload);
+                        
     return send_cell_message(jetton_wallet_address, msg_value, msg_body.end_cell(), sending_mode);
 }
 
@@ -119,18 +113,18 @@ slice get_address_by_state_init(cell state_init) inline {
     return send_cell_message(jetton_wallet_address, msg_value, msg_body, sending_mode);
 }
 
-
-builder int_to_str(int number) {
-    builder string = begin_cell();
-    tuple chars = null();
-    do {
-        int r = number~divmod(10);
-        chars = cons(r + 48, chars);
-    } until (number == 0);
-    do {
-        int char = chars~list_next();
-        string~store_uint(char, 8);
-    } until (null?(chars));
-    
-    return string;
-}
+;; taken from Openlib (https://github.com/continuation-team/openlib.func/blob/main/openlib.func)
+builder store_number10(builder b, int x) asm """
+  ZERO                                                        // b x i=0
+  SWAP                                                        // b i=0 x
+  UNTIL:<{                                                    // b i x
+    10 PUSHINT DIVMOD                                         // b i x r
+    48 ADDCONST                                               // b i x r
+    s3 s1 s3 XCHG3                                            // r b x i
+    INC                                                       // r b x i
+    s1 s0 XCPU                                                // r b i x x
+    ISZERO
+  }>
+  DROP
+  REPEAT:<{ 8 STU }>                                          // ..rrr.. b i
+""";

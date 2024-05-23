@@ -99,8 +99,13 @@ global int   storage::change_invitee?;      ;; is changing user's invitee after 
             int query_id = in_msg_body~load_uint(64);
             send_builder_message(storage::buyer_address, 0, begin_cell().store_uint(op::ownership_proof_bounced, 32).store_uint(query_id, 64), mode::carry_remaining_gas);
         }
-        if (op == op::request_refund) {
+        if (op == op::request_refund) {  ;; refund unsuccessful -> ico hasn't failed
             storage::refund_requested = 0;
+            save_data();
+        }
+        if (op == op::claim) {  ;; claim unsuccessful -> ico failed
+            storage::claimed_times = 0;
+            storage::claimed_jettons = 0;
             save_data();
         }
         return ();
@@ -157,6 +162,7 @@ global int   storage::change_invitee?;      ;; is changing user's invitee after 
                                 .store_slice(storage::buyer_address)
                                 .store_coins(new_purchased_jettons)
                                 .store_coins(new_collected_ton)
+                                .store_maybe_ref(storage::ref_data)
                             .end_cell();
             send_cell_message(storage::sale_address, 0, msg_body, mode::carry_remaining_balance);
 
@@ -180,8 +186,9 @@ global int   storage::change_invitee?;      ;; is changing user's invitee after 
                                     .store_uint(query_id, 64)
                                     .store_uint(storage::index, 256)
                                     .store_slice(storage::buyer_address)
+                                    .store_coins(new_purchased_jettons)
                                     .store_coins(new_collected_ton)
-                                    .store_dict(storage::ref_data);
+                                    .store_maybe_ref(storage::ref_data);
             send_cell_message(storage::sale_address, 0, msg_body.end_cell(), mode::carry_remaining_balance);
             
             save_data();
@@ -192,19 +199,18 @@ global int   storage::change_invitee?;      ;; is changing user's invitee after 
     if (op == op::claim) {
         throw_unless(exc::incorrect_sender, equal_slices(storage::buyer_address, sender_address));
         throw_unless(exc::not_unlocked_yet, now() > storage::first_unlock_time);
+        throw_unless(exc::out_of_gas, msg_value >= gas::claim_jettons);
 
         int total_unlocks = min(storage::cycles_number, (now() - storage::first_unlock_time) / storage::cycle_length);
-        int available_percent = muldiv((total_unlocks - storage::claimed_times), percent_devider, storage::cycles_number);
-        if (storage::claimed_times == 0) {
-            available_percent += storage::first_unlock_size;
-        }
-
+        int available_percent = storage::first_unlock_size + muldiv(total_unlocks, percent_devider - storage::first_unlock_size, storage::cycles_number);
         int available_jettons = 0;
-        if (total_unlocks == storage::cycles_number + 1) {
+        int sending_mode = mode::carry_remaining_gas;
+        if (total_unlocks == storage::cycles_number) {
             available_jettons = storage::purchased_jettons - storage::claimed_jettons;
+            sending_mode = mode::carry_remaining_balance;
         }
         else {
-            available_jettons = muldiv(storage::purchased_jettons, available_percent, percent_devider);
+            available_jettons = muldiv(storage::purchased_jettons, available_percent, percent_devider) - storage::claimed_jettons;
         }
         
         throw_unless(exc::nothing_to_claim, available_jettons);
@@ -214,10 +220,12 @@ global int   storage::change_invitee?;      ;; is changing user's invitee after 
                                 .store_uint(query_id, 64)
                                 .store_uint(storage::index, 256)
                                 .store_slice(storage::buyer_address)
-                                .store_coins(available_jettons);
-        send_cell_message(storage::sale_address, 0, msg_body.end_cell(), mode::carry_remaining_gas);
-
-        storage::claimed_times = total_unlocks; 
+                                .store_coins(available_jettons)
+                                .store_coins(muldiv(storage::collected_ton, available_percent, percent_devider))
+                                .store_maybe_ref(storage::ref_data);
+        send_cell_message(storage::sale_address, 0, msg_body.end_cell(), sending_mode);
+        
+        storage::claimed_times = total_unlocks + 1; 
         storage::claimed_jettons += available_jettons;
         save_data();
         return ();
@@ -226,14 +234,17 @@ global int   storage::change_invitee?;      ;; is changing user's invitee after 
     if (op == op::request_refund) {
         throw_unless(exc::incorrect_sender, equal_slices(storage::buyer_address, sender_address));
         throw_if(exc::refund_requested, storage::refund_requested);
+        throw_unless(exc::out_of_gas, msg_value >= gas::claim_jettons);
 
         builder msg_body = begin_cell()
                                 .store_uint(op::request_refund, 32)
                                 .store_uint(query_id, 64)
                                 .store_uint(storage::index, 256)
                                 .store_slice(storage::buyer_address)
-                                .store_coins(storage::collected_ton);
-        send_cell_message(storage::sale_address, 0, msg_body.end_cell(), mode::carry_remaining_gas);
+                                .store_coins(storage::purchased_jettons)
+                                .store_coins(storage::collected_ton)
+                                .store_maybe_ref(storage::ref_data);
+        send_cell_message(storage::sale_address, 0, msg_body.end_cell(), mode::carry_remaining_balance);
         
         storage::refund_requested = true;
         save_data();
@@ -355,7 +366,7 @@ cell my_code() asm "MYCODE";
 ;; }
 
 
-(int, int, slice, slice, int, int, int, int, int, int, int, int, cell, int) get_storage_data() method_id {
+(int, int, slice, slice, int, int, int, int, int, int, int, int, cell, int, int) get_storage_data() method_id {
     load_data();
 
     return (
@@ -372,6 +383,7 @@ cell my_code() asm "MYCODE";
         storage::cycle_length,
         storage::cycles_number,
         storage::ref_data,
+        storage::refund_requested,
         storage::change_invitee?
     );      
 }

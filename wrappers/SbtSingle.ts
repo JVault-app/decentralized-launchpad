@@ -9,7 +9,7 @@ export type SbtItemDataConfig = {
 };
 
 export function sbtItemDataConfigToCell(config: SbtItemDataConfig): Cell {
-    return beginCell().storeUint(config.index, 256).storeAddress(config.collection_address).endCell();
+    return beginCell().storeUint(config.index, 64).storeAddress(config.collection_address).endCell();
 }
 
 export type SbtItemMessageConfig = {

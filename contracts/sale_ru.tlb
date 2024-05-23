@@ -223,7 +223,7 @@ purchase_whitelist_request#0524c7ae
 // storage:
 sft_item_storage$_
     index:uint256  // requester  (wl_sbt or buyer) address int
-    collection_address:MsgAddress
+    sale_address:MsgAddress
     internal_ds:^[
         buyer_address:MsgAddress
         purchased_jettons:Coins
@@ -240,6 +240,11 @@ sft_item_storage$_
     ]
 = SftItemStorage;
 
+sft_item_init_data$_
+    item_index:uint256  // hash part of the owner Address
+    sale_address:MsgAddress
+= SftItemInitData;
+
 update_sft_message#dca3da4c
     query_id:uint64
     jettons_to_purchase:Coins
@@ -251,7 +256,7 @@ update_sft_message#dca3da4c
     cycle_length:uint32
     cycles_number:uint16
     ref_data:(Maybe ^[ref_address:MsgAddress cashback_factor:uint32])
-= InternalMessageBody;
+= InternalMsgBody;
 
 // Далее идет проверка на контракте sft_item.fc, что не превышен суммарный максимальный объем покупки
 // В случае успешной проверки обновляются данные в контракте, и отправляется сообщение approve purchase
@@ -259,9 +264,10 @@ approve_purchase_message#9f48d36d
     query_id:uint64
     sft_index:uint256
     sft_buyer:MsgAddress
+    purchased_jettons:Coins
     received_ton:Coins
     ref_data:(Maybe ^[ref_address:MsgAddress cashback_factor:uint32])
-= InternalMessageBody;
+= InternalMsgBody;
 // В случае ошибки отправляется сообщение cancel purchase, далее отправленные ранее TON возвращаются пользователю
 cancel_purchase_message#7d1d7445
     query_id:uint64
@@ -269,12 +275,13 @@ cancel_purchase_message#7d1d7445
     sft_buyer:MsgAddress
     purchased_jettons:Coins
     ton_to_return:Coins
-= InternalMessageBody;
+    ref_data:(Maybe ^[ref_address:MsgAddress cashback_factor:uint32])
+= InternalMsgBody;
 // Если покупка была успешна, и сумма покупки больше min_ref_purchase, то деплоится контракт ref_wallet.fc
 // Storage:
 ref_wallet_storage$_
     owner_address:MsgAddress
-    collection_address:MsgAddress
+    sale_address:MsgAddress
     sale_end_time:uint32
     collected_ton:(Maybe Coins)
 = RefWalletStorage;
@@ -296,10 +303,12 @@ sft_owner_claim_request#a769de27 query_id:uint64 = InternalMsgBody;
 // После этого вычисляется количество доступных для клейма жетонов и отправляется транзакция на адрес ico_sale.fc:
 sft_item_claim_request#a769de27
     query_id:uint64
-    index:uint256
-    buyer:MsgAddress
+    sft_index:uint256
+    sft_buyer:MsgAddress
     available_jettons:Coins
-= InternalMessageBody;
+    ton_equivalent:Coins
+    ref_data:(Maybe ^[ref_address:MsgAddress cashback_factor:uint32])
+= InternalMsgBody;
 // На контракте ico_sale.fc проверяется, что сейл был завершен успешно (собран минимальный объем средств), и если да,
 // то приобретенные жетоны отправляются юзеру, иначе происходит исключение "sale_failed"
 
@@ -352,6 +361,7 @@ deposit_liquidity_native_message#d55e4686
     fulfill_payload:(Maybe FulfillPayload)
     reject_payload:(Maybe RejectPayload)
 = InternalMsgBody;
+
 // Сообщение отправляется на jetton_wallet_address, жетоны отправляются на jetton_vault_address
 deposit_liquidity_jetton_message#_ (JettonTransferMsg DepositLiquidityJettonPayload) = InternalMsgBody;
 
@@ -365,7 +375,9 @@ sft_item_refund_request#1075d7a3
     query_id:uint64
     index:uint256
     buyer:MsgAddress
+    purchased_jettons:Coins
     collected_ton:Coins
+    ref_data:(Maybe ^[ref_address:MsgAddress cashback_factor:uint32])
 = InternalMsgBody;
 // На контракте ico_sale.fc проверяется, что сейл был завершен НЕуспешно (минимальный объем средств собран не был), и если да,
 // то приобретенные все TON, потраченные на покупку юзером, возвращаются ему. Иначе происходит исключение "sale_succeed"
