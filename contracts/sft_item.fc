@@ -99,8 +99,13 @@ global int   storage::change_invitee?;      ;; is changing user's invitee after 
             int query_id = in_msg_body~load_uint(64);
             send_builder_message(storage::buyer_address, 0, begin_cell().store_uint(op::ownership_proof_bounced, 32).store_uint(query_id, 64), mode::carry_remaining_gas);
         }
-        if (op == op::request_refund) {
+        if (op == op::request_refund) {  ;; refund unsuccessful -> ico hasn't failed
             storage::refund_requested = 0;
+            save_data();
+        }
+        if (op == op::claim) {  ;; claim unsuccessful -> ico failed
+            storage::claimed_times = 0;
+            storage::claimed_jettons = 0;
             save_data();
         }
         return ();
@@ -203,8 +208,10 @@ global int   storage::change_invitee?;      ;; is changing user's invitee after 
         }
 
         int available_jettons = 0;
+        int sending_mode = mode::carry_remaining_gas;
         if (total_unlocks == storage::cycles_number + 1) {
             available_jettons = storage::purchased_jettons - storage::claimed_jettons;
+            sending_mode = mode::carry_remaining_balance;
         }
         else {
             available_jettons = muldiv(storage::purchased_jettons, available_percent, percent_devider);
@@ -220,8 +227,8 @@ global int   storage::change_invitee?;      ;; is changing user's invitee after 
                                 .store_coins(available_jettons)
                                 .store_coins(muldiv(storage::collected_ton, available_percent, percent_devider))
                                 .store_maybe_ref(storage::ref_data);
-        send_cell_message(storage::sale_address, 0, msg_body.end_cell(), mode::carry_remaining_gas);
-
+        send_cell_message(storage::sale_address, 0, msg_body.end_cell(), sending_mode);
+        
         storage::claimed_times = total_unlocks; 
         storage::claimed_jettons += available_jettons;
         save_data();
@@ -241,7 +248,7 @@ global int   storage::change_invitee?;      ;; is changing user's invitee after 
                                 .store_coins(storage::purchased_jettons)
                                 .store_coins(storage::collected_ton)
                                 .store_maybe_ref(storage::ref_data);
-        send_cell_message(storage::sale_address, 0, msg_body.end_cell(), mode::carry_remaining_gas);
+        send_cell_message(storage::sale_address, 0, msg_body.end_cell(), mode::carry_remaining_balance);
         
         storage::refund_requested = true;
         save_data();
