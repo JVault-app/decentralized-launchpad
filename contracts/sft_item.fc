@@ -193,7 +193,7 @@ global int   storage::change_invitee?;      ;; is changing user's invitee after 
         throw_unless(exc::incorrect_sender, equal_slices(storage::buyer_address, sender_address));
         throw_unless(exc::not_unlocked_yet, now() > storage::first_unlock_time);
 
-        int total_unlocks = 1 + min(storage::cycles_number, (now() - storage::first_unlock_time) / storage::cycle_length);
+        int total_unlocks = min(storage::cycles_number, (now() - storage::first_unlock_time) / storage::cycle_length);
         int available_percent = muldiv((total_unlocks - storage::claimed_times), percent_devider, storage::cycles_number);
         if (storage::claimed_times == 0) {
             available_percent += storage::first_unlock_size;

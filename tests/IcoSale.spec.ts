@@ -100,7 +100,7 @@ describe('Ico', () => {
             liquidityPartJetton: 40000000,
 
             firstUnlockTime: nowSetting + 12000,
-            firstUnlockSize: 10000000,
+            firstUnlockSize: toNano(1),
             cycleLength: 3600,
             cyclesNumber: 10,
 
@@ -381,7 +381,7 @@ describe('Ico', () => {
         // console.log(res.events)
         // console.log(res.transactions[2].vmLogs)
 
-        blockchain.now = conf.saleEndTime + 100000
+        blockchain.now = conf.saleEndTime + 1
         res = await ico.sendEndSell(user1.getSender(), toNano(1))
         // printTransactionFees(res.transactions)
         // console.log(res.events)
@@ -397,13 +397,44 @@ describe('Ico', () => {
             to: ico.address,
             exitCode: ErrorCodes.saleSucceed
         })
+        await user1JettonWalletAddress.sendBurn(user1.getSender(), toNano(1), await user1JettonWalletAddress.getJettonBalance(), user1.address, Cell.EMPTY)
+        expect(await user1JettonWalletAddress.getJettonBalance()).toEqual(0n)
 
-        let balanceBefore = await user1JettonWalletAddress.getJettonBalance()
+        res = await user1Claim.sendClaim(user1.getSender(), toNano("0.1"))
+        expect(res.transactions).toHaveTransaction({
+            to: user1Claim.address,
+            op: OpCodes.CLAIM,
+            exitCode: ErrorCodes.notUnlockedYet
+        })
+
+        blockchain.now = conf.firstUnlockTime + 1
+
         let claimAmount = (await user1Claim.getStorageData()).purchased_jettons
         res = await user1Claim.sendClaim(user1.getSender(), toNano("0.1"))
         printTransactionFees(res.transactions)
         console.log(claimAmount)
-        expect(await user1JettonWalletAddress.getJettonBalance()).toEqual(claimAmount + balanceBefore)
+        console.log((await user1Claim.getStorageData()).purchased_jettons > await user1JettonWalletAddress.getJettonBalance())
+        expect(await user1JettonWalletAddress.getJettonBalance()).toEqual(claimAmount > conf.firstUnlockSize ? conf.firstUnlockSize : claimAmount)
+
+        // let user2ClaimBalance = (await user2ClaimWl.getStorageData()).purchased_jettons
+        // res = await user2ClaimWl.sendClaim(user2.getSender(), toNano("0.1"));
+        // printTransactionFees(res.transactions)
+        // expect(res.transactions).toHaveTransaction({
+        //     from: user2ClaimWl.address,
+        //     to: ico.address,
+        //     op: OpCodes.CLAIM
+        // })
+        // expect(res.transactions).toHaveTransaction({
+        //     from: ico.address,
+        //     to: jettonWalletAddress.address,
+        //     op: OpCodes.TRANSFER_JETTON
+        // })
+
+        // let user2JettonWallet = blockchain.openContract(JettonWallet.createFromAddress(await jettonRootAddress.getWalletAddress(user2.address)))
+
+        // console.log(user2ClaimBalance)
+        // console.log(await user2JettonWallet.getJettonBalance())
+
         // console.log(res.events)
         // console.log(res.transactions)
     })

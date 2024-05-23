@@ -88,7 +88,7 @@ export type IcoSaleConfig = {
     liquidityPartJetton: number ;
 
     firstUnlockTime: number;
-    firstUnlockSize: number;
+    firstUnlockSize: bigint;
     cycleLength: number;
     cyclesNumber: number;
 
