@@ -203,14 +203,10 @@ global int   storage::change_invitee?;      ;; is changing user's invitee after 
 
         int total_unlocks = min(storage::cycles_number, (now() - storage::first_unlock_time) / storage::cycle_length);
         int available_percent = storage::first_unlock_size + muldiv(total_unlocks, percent_devider - storage::first_unlock_size, storage::cycles_number);
-        int available_jettons = 0;
+        int available_jettons = muldiv(storage::purchased_jettons, available_percent, percent_devider) - storage::claimed_jettons;
         int sending_mode = mode::carry_remaining_gas;
         if (total_unlocks == storage::cycles_number) {
-            available_jettons = storage::purchased_jettons - storage::claimed_jettons;
             sending_mode = mode::carry_remaining_balance;
-        }
-        else {
-            available_jettons = muldiv(storage::purchased_jettons, available_percent, percent_devider) - storage::claimed_jettons;
         }
         
         throw_unless(exc::nothing_to_claim, available_jettons);
