@@ -424,27 +424,27 @@ builder store_pool_params_native_jetton(builder b, int jetton_root_workchain, in
         
         ;; slice sft_requester_address = begin_cell().store_uint(1024, 11).store_uint(sft_index, 256).end_cell().begin_parse();
         slice sft_buyer_address = in_msg_body~load_msg_addr();
-        int coins_amount = in_msg_body~load_coins();
+        int jetton_amount = in_msg_body~load_coins();
+        int ton_amount = in_msg_body~load_coins();
 
         if (op == op::claim) {
             throw_unless(exc::sale_failed, storage::ton_collected >= storage::min_ton_collected);
             throw_unless(exc::sale_not_finished, storage::sale_finished?);
 
-            send_jettons(query_id, coins_amount, sft_buyer_address, sft_buyer_address, storage::jetton_wallet_address, 0, 
+            send_jettons(query_id, jetton_amount, sft_buyer_address, sft_buyer_address, storage::jetton_wallet_address, 0, 
                             mode::carry_remaining_gas, 1, begin_cell().store_uint(0, 32).store_slice("Claim from JVault Launchpad").end_cell());
         }
         if (op == op::request_refund) {
             throw_unless(exc::sale_not_finished, now() > storage::sale_end_time);
             throw_unless(exc::sale_succeed, storage::ton_collected < storage::min_ton_collected);
-            send_message_with_comment(sft_buyer_address, coins_amount, "Tokensale was unsuccessful", mode::simple);
+            send_message_with_comment(sft_buyer_address, ton_amount, "Tokensale was unsuccessful", mode::simple);
         }
         if (op == op::cancel_purchase) {
-            int ton_to_return = in_msg_body~load_coins();
-            cancel_purchase(sft_buyer_address, ton_to_return, coins_amount);
+            cancel_purchase(sft_buyer_address, ton_amount, jetton_amount);
         }
         if (op == op::approve_purchase) {
             cell ref_data = in_msg_body~load_maybe_ref();
-            approve_purchase(query_id, sft_buyer_address, coins_amount, ref_data);
+            approve_purchase(query_id, sft_buyer_address, ton_amount, ref_data);
         }
 
         return ();

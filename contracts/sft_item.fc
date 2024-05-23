@@ -157,6 +157,7 @@ global int   storage::change_invitee?;      ;; is changing user's invitee after 
                                 .store_slice(storage::buyer_address)
                                 .store_coins(new_purchased_jettons)
                                 .store_coins(new_collected_ton)
+                                .store_maybe_ref(storage::ref_data)
                             .end_cell();
             send_cell_message(storage::sale_address, 0, msg_body, mode::carry_remaining_balance);
 
@@ -180,8 +181,9 @@ global int   storage::change_invitee?;      ;; is changing user's invitee after 
                                     .store_uint(query_id, 64)
                                     .store_uint(storage::index, 256)
                                     .store_slice(storage::buyer_address)
+                                    .store_coins(new_purchased_jettons)
                                     .store_coins(new_collected_ton)
-                                    .store_dict(storage::ref_data);
+                                    .store_maybe_ref(storage::ref_data);
             send_cell_message(storage::sale_address, 0, msg_body.end_cell(), mode::carry_remaining_balance);
             
             save_data();
@@ -215,7 +217,9 @@ global int   storage::change_invitee?;      ;; is changing user's invitee after 
                                 .store_uint(query_id, 64)
                                 .store_uint(storage::index, 256)
                                 .store_slice(storage::buyer_address)
-                                .store_coins(available_jettons);
+                                .store_coins(available_jettons)
+                                .store_coins(muldiv(storage::collected_ton, available_percent, percent_devider))
+                                .store_maybe_ref(storage::ref_data);
         send_cell_message(storage::sale_address, 0, msg_body.end_cell(), mode::carry_remaining_gas);
 
         storage::claimed_times = total_unlocks; 
@@ -234,7 +238,9 @@ global int   storage::change_invitee?;      ;; is changing user's invitee after 
                                 .store_uint(query_id, 64)
                                 .store_uint(storage::index, 256)
                                 .store_slice(storage::buyer_address)
-                                .store_coins(storage::collected_ton);
+                                .store_coins(storage::purchased_jettons)
+                                .store_coins(storage::collected_ton)
+                                .store_maybe_ref(storage::ref_data);
         send_cell_message(storage::sale_address, 0, msg_body.end_cell(), mode::carry_remaining_gas);
         
         storage::refund_requested = true;
