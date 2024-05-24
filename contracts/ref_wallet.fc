@@ -73,7 +73,10 @@ global int   storage::collected_ton;
     if (op == op::claim_ref) {
         throw_unless(exc::incorrect_sender, equal_slices(storage::owner_address, sender_address));
         throw_unless(exc::sale_not_finished, now() >= storage::sale_end_time);
-        throw_unless(exc::nothing_to_claim, storage::collected_ton > min_tons_for_storage);
+        if (storage::collected_ton == 0) {
+            send_excess(in_msg_body~load_msg_addr(), query_id , 0, mode::carry_remaining_balance);
+            return ();
+        }
         
         builder claim_msg_body = begin_cell()
                                     .store_uint(op::claim_ref, 32)

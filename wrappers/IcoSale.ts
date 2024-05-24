@@ -58,10 +58,10 @@ export type RefsDictValue = {
 function RefsDictValueParser(): DictionaryValue<RefsDictValue> {
     return {
         serialize: (src, buidler) => {
-            buidler.storeUint(src.cashbackFactor, 32).storeUint(src.discountFactor, 32).endCell();
+            buidler.storeUint(src.discountFactor, 32).storeUint(src.cashbackFactor, 32).endCell();
         },
         parse: (src) => {
-            return {cashbackFactor: src.loadUint(32), discountFactor: src.loadUint(32)};
+            return {discountFactor: src.loadUint(32), cashbackFactor: src.loadUint(32)};
         }
     }
 }

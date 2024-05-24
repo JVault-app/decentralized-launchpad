@@ -38,7 +38,7 @@ export class RefWallet implements Contract {
         });
     }
 
-    async sendClaimRef(provider: ContractProvider, via: Sender, value: bigint, queryId: Maybe<number | bigint>) {
+    async sendClaimRef(provider: ContractProvider, via: Sender, value: bigint, queryId?: Maybe<number | bigint>) {
         await provider.internal(via, {
             value,
             sendMode: SendMode.PAY_GAS_SEPARATELY,
