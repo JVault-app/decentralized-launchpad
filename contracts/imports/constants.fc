@@ -56,6 +56,7 @@ const int op::change_revenue_share    = 0x25f0728d;
 const int op::change_creation_fees    = 0x610240f1;
 const int op::change_commissions      = 0x66c1c896;
 const int op::change_codes            = 0xb97d7c00;
+const int op::deploy_refs             = 0xd6078a7b;
 
 ;; LP Messages
 const int op::deposit_liquidity_native = 0xd55e4686;
@@ -103,7 +104,7 @@ const int gas::provide_addr    = 100000000;
 
 const int gas::deploy_ico_sale = 50000000;
 const int gas::deploy_sft      = 110000000;
-const int gas::deploy_ref      = 50000000;
+const int gas::deploy_ref      = 30000000;
 
 const int gas::purchase        = 150000000; ;; deploy_sft + update_wallet + gas
 const int gas::end_sale        = 500000000;

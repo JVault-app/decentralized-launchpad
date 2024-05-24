@@ -73,7 +73,11 @@ function AddressHashParser(): DictionaryKey<Address> {
             return BigInt(`0x${src.hash.toString("hex")}`);
         },
         parse: (src) => {
-            return Address.parseRaw(`0:${src.toString(16)}`);
+            let hashString = src.toString(16)
+            while (hashString.length < 64) {
+                hashString = "0" + hashString
+            }
+            return new Address(0, Buffer.from(hashString, "hex"))
         }
     }
 }
@@ -106,7 +110,7 @@ export type IcoSaleConfig = {
     commission_factors: Dictionary<bigint, number>;
 
     minRefPurchase: bigint;
-    defaultCashback: number;
+    defaultCashback: bigint;
     refsDict: Dictionary<Address, RefsDictValue>;
     refWalletCode: Cell; 
     changeInvitee: boolean;
@@ -198,7 +202,7 @@ export class IcoSale implements Contract {
         });
     }
 
-    async sendBuyRef(provider: ContractProvider, via: Sender, value: bigint, ref: Maybe<Address>) {
+    async sendBuyRef(provider: ContractProvider, via: Sender, value: bigint, ref?: Maybe<Address>) {
         await provider.internal(via, {
             value,
             sendMode: SendMode.PAY_GAS_SEPARATELY,
@@ -258,6 +262,14 @@ export class IcoSale implements Contract {
         });
     }
 
+    async sendDeployRefs(provider: ContractProvider, via: Sender, value: bigint, startAddress: Address | null = null, queryId?: Maybe<number | bigint>) {
+        await provider.internal(via, {
+            value,
+            sendMode: SendMode.PAY_GAS_SEPARATELY,
+            body: beginCell().storeUint(OpCodes.DEPLOY_REFS, 32).storeUint(queryId ?? 0, 64).storeAddress(startAddress).endCell()
+        })
+    }
+
     async getJettonData(provider: ContractProvider) {
         let { stack } = await provider.get('get_jetton_data', []);
         return {
@@ -296,7 +308,7 @@ export class IcoSale implements Contract {
             default_cashback: stack.readNumber(),
 
             min_ref_purchase: stack.readBigNumber(),
-            refs_dict: stack.readCellOpt(),
+            refs_dict: stack.readCellOpt()?.asSlice().loadDictDirect(AddressHashParser(), RefsDictValueParser()),
             ref_wallet_code: stack.readCell(),
 
             sale_start_time: stack.readNumber(),

@@ -1,4 +1,4 @@
-import { Blockchain, SandboxContract, TreasuryContract, printTransactionFees } from '@ton-community/sandbox';
+import { Blockchain, SandboxContract, TreasuryContract, prettyLogTransactions, printTransactionFees } from '@ton-community/sandbox';
 import { Address, Cell, Dictionary, comment, toNano } from 'ton-core';
 import { RefWallet } from '../wrappers/RefWallet';
 import '@ton-community/test-utils';
@@ -78,8 +78,8 @@ describe('Ico', () => {
             minPurchaseTon: toNano(10),
             maxPurchaseTon: toNano(100),
                 wlCondition1: {
-                    priceFactor: 1n,
-                    priceDevider: 1n,
+                    priceFactor: 15n,
+                    priceDevider: 10n,
                     minPurchaseTon: toNano(10),
                     maxPurchaseTon: toNano(30000), wlSbtCode: sbtSingleCode, 
                     wlCollectionAddress: wlCollectionAddress.address
@@ -116,7 +116,7 @@ describe('Ico', () => {
             commission_factors,
 
             minRefPurchase: toNano(20),
-            defaultCashback: 1000,
+            defaultCashback: 1000000n,
             refsDict,
             refWalletCode: refWalletCode,
             changeInvitee: false,
@@ -162,9 +162,7 @@ describe('Ico', () => {
         expect(await jettonWalletAddress.getJettonBalance()).toEqual(toNano(100000))
         expect((await ico.getStorageData()).jettons_added).toBeTruthy()
     });
-    it('should sale without wl and ref', async () => {
-        conf.minTonCollected = toNano(50)
-        
+    it('should sale without wl and ref', async () => {        
         // send jettons
         let res = await user1JettonWalletAddress.sendTransfer(user1.getSender(), toNano("0.15"), toNano(100000), ico.address, user1.address, null, toNano("0.1"), null)
         expect(await jettonWalletAddress.getJettonBalance()).toEqual(toNano(100000))
@@ -177,7 +175,7 @@ describe('Ico', () => {
         let user2Ref = blockchain.openContract(RefWallet.createFromAddress(await ico.getRefAddress(user2.address)))
 
         // sale fails (not started)
-        res = await ico.sendSimpleBuy(user1.getSender(), toNano(500))
+        res = await ico.sendSimpleBuy(user1.getSender(), toNano(50))
         // printTransactionFees(res.transactions)
         expect(res.transactions).toHaveTransaction({
             to: ico.address,
@@ -262,6 +260,7 @@ describe('Ico', () => {
         res = await ico.sendSimpleBuy(user1.getSender(), toNano("10.15"))
         // printTransactionFees(res.transactions)
         expect((await user1Claim.getStorageData()).collected_ton).toEqual(toNano(70))
+        expect((await user1Claim.getStorageData()).purchased_jettons).toEqual(toNano(70) * conf.purchaseConditions.priceDevider / conf.purchaseConditions.priceFactor)
 
         expect(res.transactions).toHaveTransaction({
             from: ico.address,
@@ -350,6 +349,8 @@ describe('Ico', () => {
 
         expect((await user2ClaimWl.getStorageData()).collected_ton).toBeGreaterThan(toNano(29999))
         expect((await user2ClaimWl.getStorageData()).collected_ton).toBeLessThanOrEqual(toNano(30000))
+        expect((await user2ClaimWl.getStorageData()).purchased_jettons).toBeGreaterThan(toNano(29999) * conf.purchaseConditions.wlCondition1!!.priceDevider / conf.purchaseConditions.wlCondition1!!.priceFactor)
+        expect((await user2ClaimWl.getStorageData()).purchased_jettons).toBeLessThanOrEqual(toNano(30000) * conf.purchaseConditions.wlCondition1!!.priceDevider / conf.purchaseConditions.wlCondition1!!.priceFactor)
 
         expect(res.transactions).toHaveTransaction({
             from: ico.address,
@@ -425,27 +426,118 @@ describe('Ico', () => {
             blockchain.now += conf.cycleLength;
         }
         expect(total_claimed_amount).toEqual(purchasedAmount.toFixed(0));
+    })
+    it ('should deploy refs', async () => {
+        let new_refs: Dictionary<Address, RefsDictValue> = Dictionary.empty();
+        for (let i = 0; i < 200; i++) {
+            new_refs.set(randomAddress(), {cashbackFactor: 20, discountFactor: 100});
+        }
+        let res = await ico.sendAddRefAddresses(adminAddress.getSender(), toNano(1), {refs: new_refs}) 
+        // res = await ico.sendDeployRefs(user1.getSender(), toNano(1))
+        let result_refs = (await ico.getStorageData()).refs_dict!!;
+        expect(result_refs.size).toEqual(201);
+        let cur_addr = null
+        let temp_keys = result_refs.keys().sort((a,b) => Number(BigInt(`0x${a.hash.toString("hex")}`) - BigInt(`0x${b.hash.toString("hex")}`)))
+        while (temp_keys.length > 0) {
+            res = await ico.sendDeployRefs(user1.getSender(), toNano("0.1") * 50n, cur_addr)
+            for (let i = 0; i < 50; i++) {
+                if (temp_keys.length == 0) {
+                    break
+                }
+                let to = await ico.getRefAddress(temp_keys.shift()!!)
+                try {expect(res.transactions).toHaveTransaction({
+                    from: ico.address,
+                    to: to,
+                    success: true,
+                    deploy: true
+                })} catch {
+                    console.log(temp_keys)
+                    console.log(to)
+                    expect(temp_keys.map(elem => elem.toString())).toContain(to?.toString())
+                }
+            }
+            cur_addr = temp_keys.at(0)
+        }
+    })
+    it('should return money if it failed', async () => {
+        // send jettons
+        await ico.sendDeployRefs(user1.getSender(), toNano("0.1"))
+        let res = await user1JettonWalletAddress.sendTransfer(user1.getSender(), toNano("0.15"), toNano(100000), ico.address, user1.address, null, toNano("0.1"), null)
+        expect(await jettonWalletAddress.getJettonBalance()).toEqual(toNano(100000))
+        expect((await ico.getStorageData()).jettons_added).toBeTruthy()
 
-        // let user2ClaimBalance = (await user2ClaimWl.getStorageData()).purchased_jettons
-        // res = await user2ClaimWl.sendClaim(user2.getSender(), toNano("0.1"));
+        let user1Claim = blockchain.openContract(SbtNft.createFromAddress(await ico.getWalletAddress(user1.address)))
+        let user1Ref = blockchain.openContract(RefWallet.createFromAddress(await ico.getRefAddress(user1.address)))
+
+        let user2ClaimWl = blockchain.openContract(SbtNft.createFromAddress(await ico.getWalletAddress(wlSbt.address)))
+        let user2Ref = blockchain.openContract(RefWallet.createFromAddress(await ico.getRefAddress(user2.address)))
+
+        res = await ico.sendBuyRef(user1.getSender(), toNano(50), conf.refsDict.keys()[0])
         // printTransactionFees(res.transactions)
-        // expect(res.transactions).toHaveTransaction({
-        //     from: user2ClaimWl.address,
-        //     to: ico.address,
-        //     op: OpCodes.CLAIM
-        // })
-        // expect(res.transactions).toHaveTransaction({
-        //     from: ico.address,
-        //     to: jettonWalletAddress.address,
-        //     op: OpCodes.TRANSFER_JETTON
-        // })
+        expect(res.transactions).toHaveTransaction({
+            to: ico.address,
+            exitCode: ErrorCodes.saleNotStarted
+        })
+        blockchain.now = conf.saleStartTime + 1
 
-        // let user2JettonWallet = blockchain.openContract(JettonWallet.createFromAddress(await jettonRootAddress.getWalletAddress(user2.address)))
+        // sale fails (less than min amount)
+        res = await ico.sendBuyRef(user1.getSender(), toNano(10), conf.refsDict.keys()[0])
+        // printTransactionFees(res.transactions)
+        expect(res.transactions).toHaveTransaction({
+            to: ico.address,
+            exitCode: ErrorCodes.lessThanMinPurchase
+        })
 
-        // console.log(user2ClaimBalance)
-        // console.log(await user2JettonWallet.getJettonBalance())
+        // sale fails (more than max amount)
+        res = await ico.sendBuyRef(user1.getSender(), toNano(102), conf.refsDict.keys()[0])
+        // printTransactionFees(res.transactions)
+        expect(res.transactions).toHaveTransaction({
+            to: ico.address,
+            exitCode: ErrorCodes.moreThanMaxPurchase
+        })
 
+        // sale confirms (sft created, ref wallet isn't called, ico sends excess)
+        res = await ico.sendBuyRef(user1.getSender(), toNano("70.15"), conf.refsDict.keys()[0])
+        // printTransactionFees(res.transactions)
         // console.log(res.events)
-        // console.log(res.transactions)
+        expect(res.transactions).toHaveTransaction({
+            from: ico.address,
+            to: user1Claim.address,
+            op: OpCodes.UPDATE_SBT_DATA,
+            deploy: true
+        })
+        expect(res.transactions).toHaveTransaction({
+            from: ico.address,
+            to: user1Ref.address,
+            deploy: true,
+            success: true,
+            exitCode: 0
+        })
+        expect(res.transactions).toHaveTransaction({
+            from: ico.address,
+            to: await ico.getRefAddress(conf.refsDict.keys()[0]),
+            op: OpCodes.UPDATE_REF_WALLET,
+            success: true
+        })
+        expect((await user1Ref.getStorageData()).init).toBeTruthy()
+        blockchain.verbosity.vmLogs = "vm_logs"
+        res = await wlSbt.sendBuyWl(user2.getSender(), toNano("20.15"), {dest: ico.address, lvl: 0, ref: user1.address})
+        printTransactionFees(res.transactions)
+        // prettyLogTransactions(res.transactions)
+        console.log(res.events)
+        // console.log(res.transactions.at(-1)?.vmLogs)
+        expect(res.transactions).toHaveTransaction({
+            from: ico.address,
+            to: user2ClaimWl.address,
+            op: OpCodes.UPDATE_SBT_DATA,
+            deploy: true
+        })
+        expect(res.transactions).toHaveTransaction({
+            from: ico.address,
+            to: user1Ref.address,
+            op: OpCodes.UPDATE_REF_WALLET,
+            success: true
+        })
+        expect((await user1Ref.getStorageData()).collected_ton).toEqual((await user2ClaimWl.getStorageData()).collected_ton * (conf.defaultCashback) / PERCENT_DEVIDER)
     })
 });
