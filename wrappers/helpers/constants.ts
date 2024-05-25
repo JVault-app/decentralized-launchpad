@@ -39,6 +39,7 @@ export const OpCodes = {
  
     UPDATE_REF_WALLET:        0x940298FC, 
     CLAIM_REF:                0x1F7B4E41,
+    DEPLOY_REFS:              0xd6078a7b,
  
     DEPLOY_ICO_SALE:          0x16CCCA41, 
     SEND_COMMISSIONS:         0xB96ADAEA, 

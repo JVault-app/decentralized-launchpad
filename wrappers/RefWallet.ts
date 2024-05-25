@@ -38,7 +38,7 @@ export class RefWallet implements Contract {
         });
     }
 
-    async sendClaimRef(provider: ContractProvider, via: Sender, value: bigint, queryId: Maybe<number | bigint>) {
+    async sendClaimRef(provider: ContractProvider, via: Sender, value: bigint, queryId?: Maybe<number | bigint>) {
         await provider.internal(via, {
             value,
             sendMode: SendMode.PAY_GAS_SEPARATELY,
@@ -49,7 +49,7 @@ export class RefWallet implements Contract {
     async getStorageData(provider: ContractProvider) {
         let { stack } = await provider.get('get_storage_data', []);
         return {
-            init: stack.readNumber(),
+            init: stack.readBoolean(),
             owner_address: stack.readAddress(),
             collection_address: stack.readAddress(),
             sale_end_time: stack.readNumber(),
