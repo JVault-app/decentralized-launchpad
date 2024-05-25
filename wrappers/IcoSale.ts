@@ -97,7 +97,7 @@ export type IcoSaleConfig = {
     adminAddress: Address;
     ownerAddress: Address;
     content: Cell;
-    sbtItemCode: Cell;
+    sftItemCode: Cell;
 
     jettonRootAddress: Address;
     nativeVaultAddress: Address;
@@ -150,7 +150,7 @@ export function IcoSaleConfigToCell(config: IcoSaleConfig): Cell {
                     .storeAddress(config.adminAddress)
                     .storeAddress(config.ownerAddress)
                     .storeRef(config.content)
-                    .storeRef(config.sbtItemCode)
+                    .storeRef(config.sftItemCode)
                 .endCell()
             ) 
             .storeRef( 

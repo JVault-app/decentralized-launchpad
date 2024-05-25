@@ -107,7 +107,7 @@ describe('Ico', () => {
             adminAddress: adminAddress.address,
             ownerAddress: ownerAddress.address,
             content: Cell.EMPTY,
-            sbtItemCode: sbtCode,
+            sftItemCode: sbtCode,
 
             jettonRootAddress: jettonRootAddress.address,
             nativeVaultAddress: nativeVaultAddress.address,
