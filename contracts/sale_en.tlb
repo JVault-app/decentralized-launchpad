@@ -125,11 +125,12 @@ sale_admin_storage$_
     ]
 = SaleAdminStorage;
 
-// Деплой нового ico_sale.fc. Приходит на адрес pool_admin от jetton_wallet_address
-// На контракте проверяется корректность ico_sale_data, а так же то, что количество отправленных жетонов соответствует
-// размеру фиксированного сбора.
-// Если действие успешное, то деплоится новый контракт ico_sale, а пришедшие жетоны распределяются по системе revenue share
-// иначе, пришедшие жетоны отправляются обратно юзеру или происходит ошибка недостаточного газа.
+// Deploy of a new ico_sale.fc сomes to pool_admin from jetton_wallet_address
+// The contract checks that ico_sale_data is correct and
+// that the number of tokens sent matches the fixed fee.
+// If the action is successful, a new ico_sale contract is deployed
+// and the incoming tokens are distributed through the revenue share system
+// otherwise, the incoming tokens are sent back to the user or an insufficient gas error occurs.
 ico_sale_storage$_
     init:Bool
 
@@ -180,14 +181,15 @@ deploy_ico_sale_payload#16ccca41
 
 deploy_ico_request$_ _:(JettonTransferNotificationMsg DeployIcoSalePayload) = InternalMsgBody;
 
-// Деплой нового fairlaunch_sale.fc (TODO)
-// Если действие успешное, то деплоится новый контракт fairlaunch_sale, а пришедшие жетоны распределяются по системе revenue share
-// иначе, пришедшие жетоны отправляются обратно юзеру или происходит ошибка недостаточного газа.
+// Deploy of a new fairlaunch_sale.fc (TODO)
+// If the action is successful, a new fairlaunch_sale contract is deployed
+// and the incoming tokens are distributed through the revenue share system
+// otherwise, the incoming tokens are sent back to the user or an insufficient gas error occurs.
 
 
-// Отправка комиссий с сейлов на sale_admin.fc.
-// Происходит после успешного завершения сейла процент от привлеченных средств (в виде TON или жетонов) отправляется на адрес sale_admin.
-// После этого комиссии пересылаются в соответствии с данными `revenue_share_addresses`
+// Sending commissions from sales to sale_admin.fc.
+// After successful completion of the sale, a percentage of the funds raised (in the form of TONs or tokens) is sent to sale_admin.
+// The commissions are then forwarded according to the `revenue_share_addresses` data
 send_ton_commission_request#b96adaea query_id:uint64 = InternalMsgBody;
 send_jetton_commission_payload#b96adaea = SendJettonCommissionPayload;
 send_jetton_commissions_body$_ _:(JettonTransferNotificationMsg SendJettonCommissionPayload) = InternalMsgBody;
@@ -196,20 +198,20 @@ send_jetton_commissions_body$_ _:(JettonTransferNotificationMsg SendJettonCommis
 
 // ico_sale.fc & sft_item.fc & ref_wallet.fc
 
-// При деплое на адрес jetton_root_address отправляется запрос на получение
-// актуального адреса jetton_wallet (ProvideWalletMsg). В ответ приходит сообщение TakeWalletMsg, и если
-// отправитель второго сообщения корректен, то jetton_wallet_address изменяется на отправленный минтером.
+// On deployment, a request is sent to the jetton_root_address to
+// receive the actual jetton_wallet address (ProvideWalletMsg). In response, a TakeWalletMsg message is received, and
+// if the the sender of the second message is correct, the jetton_wallet_address is changed to the one sent by the minter.
 
-// Первоначальное добавление жетонов на контракт сейла - простой трансфер с notify с достаточным газом.
-// В случае успеха jettons_added устанавливается в true
+// The initial addition of tokens to a sale contract is a simple transfer with notify with sufficient gas.
+// If successful, jettons_added is set to true
 
 // --
-// Запрос покупки с кошелька юзера, без whitelist
+// Purchase request from user's wallet, without whitelist:
 purchase_ref_request#_
     invitee_address:(Maybe ^MsgAddress)
 = InternalMsgBody;
 
-// Запрос покупка через whitelist, отправляется с whitelist SBT
+// Request purchase via whitelist, is sent from whitelist SBT:
 purchase_whitelist_request#0524c7ae
     wl_sbt_index:uint256
     owner_address:MsgAddress
@@ -219,7 +221,7 @@ purchase_whitelist_request#0524c7ae
     ]
 = InternalMsgBody;
 
-// При успешной проверке условий на контракте ico_sale, происходит деплой или обновление sft_item.fc
+// If the conditions on the ico_sale contract are successfully checked, a deploy or update of sft_item.fc takes place
 // storage:
 sft_item_storage$_
     index:uint256  // requester  (wl_sbt or buyer) address int
@@ -258,8 +260,8 @@ update_sft_message#dca3da4c
     ref_data:(Maybe ^[ref_address:MsgAddress cashback_factor:uint32])
 = InternalMsgBody;
 
-// Далее идет проверка на контракте sft_item.fc, что не превышен суммарный максимальный объем покупки
-// В случае успешной проверки обновляются данные в контракте, и отправляется сообщение approve purchase
+// Next is a check on the sft_item.fc contract that the total maximum purchase volume is not exceeded
+// If the check is successful, the data in the contract is updated and an approve purchase message is sent:
 approve_purchase_message#9f48d36d
     query_id:uint64
     sft_index:uint256
@@ -268,7 +270,7 @@ approve_purchase_message#9f48d36d
     received_ton:Coins
     ref_data:(Maybe ^[ref_address:MsgAddress cashback_factor:uint32])
 = InternalMsgBody;
-// В случае ошибки отправляется сообщение cancel purchase, далее отправленные ранее TON возвращаются пользователю
+// In case of an error, a cancel purchase message is sent, then the previously sent TONs are returned to the user:
 cancel_purchase_message#7d1d7445
     query_id:uint64
     sft_index:uint256
@@ -277,7 +279,7 @@ cancel_purchase_message#7d1d7445
     ton_to_return:Coins
     ref_data:(Maybe ^[ref_address:MsgAddress cashback_factor:uint32])
 = InternalMsgBody;
-// Если покупка была успешна, и сумма покупки больше min_ref_purchase, то деплоится контракт ref_wallet.fc
+// If the purchase was successful and the purchase amount is greater than min_ref_purchase, the ref_wallet.fc contract is deployed
 // Storage:
 ref_wallet_storage$_
     owner_address:MsgAddress
@@ -287,7 +289,7 @@ ref_wallet_storage$_
 = RefWalletStorage;
 ref_wallet_deploy_body$0 = InternalMsgBody;
 
-// Так же, если покупка была совершена с использованием реферального кода, то владельцу кода начисляется кэшбек
+// Also, if the purchase was made using a referral code, the owner of the code will be credited cashback
 update_ref_wallet_request#940298fc
     query_id:uint64
     cashback:Coins
@@ -295,12 +297,12 @@ update_ref_wallet_request#940298fc
 = InternalMsgBody;
 
 // --
-/** Если сейл был успешно завершен, то **/
+/** If the sale has been successfully completed, then: **/
 
-// 1. Когда приходит время разблокировки, пользователь может отправить запрос клейма жетонов, отправив транзакцию на sft_item.fc
+// 1. When it comes time to unlock, the user can submit a token claiming request by sending a transaction to sft_item.fc:
 sft_owner_claim_request#a769de27 query_id:uint64 = InternalMsgBody;
-// На контракте sft_item.fc проверяется, что запрос отправлен владельцем sft_item, а сейл закончился.
-// После этого вычисляется количество доступных для клейма жетонов и отправляется транзакция на адрес ico_sale.fc:
+// On the sft_item.fc contract, it is checked that the request has been sent by the owner of the sft_item and the sale has ended
+// The number of tokens available for claim process is then calculated and a transaction is sent to ico_sale.fc:
 sft_item_claim_request#a769de27
     query_id:uint64
     sft_index:uint256
@@ -309,29 +311,30 @@ sft_item_claim_request#a769de27
     ton_equivalent:Coins
     ref_data:(Maybe ^[ref_address:MsgAddress cashback_factor:uint32])
 = InternalMsgBody;
-// На контракте ico_sale.fc проверяется, что сейл был завершен успешно (собран минимальный объем средств), и если да,
-// то приобретенные жетоны отправляются юзеру, иначе происходит исключение "sale_failed"
+// The ico_sale.fc contract checks that the sale was completed successfully (minimum funds collected), and if so,
+// the purchased tokens are sent to the user, otherwise the "sale_failed" exception occurs
 
-// 2. Владелец реферального кода может заклеймить свой кэшбек, для этого он должен отправить запрос на адрес ref_wallet.fc
+// 2. The owner of the referral code can claim his cashback, to do so he must send a request to ref_wallet.fc
 ref_owner_claim_request#1f7b4e41 query_id:uint64 = InternalMsgBody;
-// На контракте проверяется, что запрос отправлен владельцем, сейл закончился, и сумма кэшбека больше минимальной.
-// После этого отпарвляется транзакция на ico_sale.fc:
+// The contract verifies that the request has been sent by the owner, the sale has ended,
+// and the cashback amount is greater than the minimum.
+// After that, a transaction is sent to ico_sale.fc:
 ref_wallet_claim_request#1f7b4e41
     query_id:uint64
     owner_address:MsgAddress
     collected_ton:Coins
 = InternalMsgBody;
-// На контракте ico_sale.fc проверяется, что сейл был завершен успешно (собран минимальный объем средств), и если да,
-// то накопленный кэшбек отправляются юзеру, иначе происходит исключение "sale_failed"
+// The ico_sale.fc contract checks that the sale was completed successfully (minimum funds collected), and if so,
+// the accumulated cashback is sent to the user, otherwise a "sale_failed" exception occurs
 
-// 3. Любой пользователь может отправить запрос на пополнение пула ликвидности, отправив транзакцию на ico_sale.fc:
+// 3. Any user can submit a request to deposit into the liquidity pool by sending a transaction to ico_sale.fc:
 end_sale_request#cb81bc08 query_id:uint64 = InternalMsgBody;
-// На контракте проверяется то, что подошло время завершения сейла, а так же то, что ликвидность еще не была предоставлена.
-// Далее:
-//    a) Cжигается часть жетонов, не проданная и не требующаяся для лкивидности
-//    b) Часть собранных TON отправляются создателю сейла
-//    c) Часть собранных TON отправляется лаунчпаду в качестве роялти
-//    d) Добавляется ликвидность:
+// The contract verifies that it is nearing the end of the sale and that liquidity has not yet been provided.
+// Further:
+//    a) The part of tokens not sold and not required for liquidity is burnt off
+//    b) A portion of the TONs collected are sent to the creator of the sale
+//    c) A portion of the TON collected is sent to Launchpad as royalties
+//    d) Liquidity is added:
 pool_params_native_jetton$000000001
     jetton_workchain:uint8
     jetton_address_hash:uint256
@@ -352,7 +355,7 @@ deposit_liquidity_jetton_payload#40e108d6
     reject_payload:(Maybe RejectPayload)
 = DepositLiquidityJettonPayload;
 
-// Отправляется на native_vault_address
+// Sends to native_vault_address
 deposit_liquidity_native_message#d55e4686
     query_id:uint64
     ton_amount:Coins
@@ -362,15 +365,16 @@ deposit_liquidity_native_message#d55e4686
     reject_payload:(Maybe RejectPayload)
 = InternalMsgBody;
 
-// Сообщение отправляется на jetton_wallet_address, жетоны отправляются на jetton_vault_address
+// The message is sent to jetton_wallet_address, the jettons are transfered to jetton_vault_address
 deposit_liquidity_jetton_message#_ (JettonTransferMsg DepositLiquidityJettonPayload) = InternalMsgBody;
 
-/** Если сейл был завершен неуспешно, то **/
+/** If the sale was unsuccessfully completed, then: **/
 
-// Покупатель может запросить возврат средств, для этого он отправляет запрос на адрес sft_item.fc
+// The buyer can request a refund by sending a request to sft_item.fc
 sft_owner_refund_request#1075d7a3 query_id:uint64 = InternalMsgBody;
-// На контракте sft_item.fc проверяется, что запрос отправлен владельцем sft_item, а сейл закончился.
-// После этого параметр refund_requested становится true, и отправляется запрос на адрес ico_sale.fc:
+// On the sft_item.fc contract, it is checked that the request has been sent
+// by the owner of the sft_item and the sale has ended.
+// The refund_requested parameter then becomes true, and a request is sent to ico_sale.fc:
 sft_item_refund_request#1075d7a3
     query_id:uint64
     index:uint256
@@ -379,22 +383,22 @@ sft_item_refund_request#1075d7a3
     collected_ton:Coins
     ref_data:(Maybe ^[ref_address:MsgAddress cashback_factor:uint32])
 = InternalMsgBody;
-// На контракте ico_sale.fc проверяется, что сейл был завершен НЕуспешно (минимальный объем средств собран не был), и если да,
-// то приобретенные все TON, потраченные на покупку юзером, возвращаются ему. Иначе происходит исключение "sale_succeed"
+// On the ico_sale.fc contract, it is checked that the sale was NOT completed successfully (no minimum amount of funds raised), and if so,
+// all TONs spent on the purchase by the user are returned to him. Otherwise the "sale_succeed" exception occurs
 
 // --
-// Так же, в контракте сейла можно менять некоторые параметры:
-// владелец:
+// Also, you can change some parameters in the sale contract:
+// Owner:
 change_creator_request#93b05b31
     query_id:uint64
     new_creator_address:MsgAddress
 = InternalMsgBody;
-// цена (на данный момент только до начала сейла):
+// Price (currently only until the start of the sale):
 change_purchase_conditions_request#a7dd3e8d
     query_id:uint64
     new_conditions:^PurchaseConditionsRoot
 = InternalMsgBody;
-// новые участники реферальной программы с особыми условиями (на данный момент только до начала сейла):
+// New members of the referral programme with special conditions (currently only until the start of the sale):
 add_ref_addresses_request#7ae5c1ca
     query_id:uint64
     new_ref_addresses:RefsDict
