@@ -91,6 +91,8 @@ const int exc::already_inited = 57;
 const int exc::already_started = 58;
 const int exc::incorrect_data = 59;
 
+const int exc::not_enough_ton = 60;
+
 const int exc::wrong_chain = 333;
 const int exc::unsupported_op = 0xffff;
 
@@ -100,9 +102,10 @@ const int exc::unsupported_op = 0xffff;
 const int min_tons_for_storage = 10000000;   
 const int gas::send_jettons    = 50000000;
 const int gas::burn_jettons    = 30000000;
-const int gas::provide_addr    = 100000000;
+const int gas::provide_addr    = 20000000;
 
-const int gas::deploy_ico_sale = 50000000;
+const int gas::deploy_ico_sale = 100000000;
+const int gas::process_deploy_ico_sale = 30000000;
 const int gas::deploy_sft      = 110000000;
 const int gas::deploy_ref      = 30000000;
 

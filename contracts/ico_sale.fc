@@ -353,7 +353,6 @@ builder store_pool_params_native_jetton(builder b, int jetton_root_workchain, in
     ifnot (storage::init?) {
         ;; set jetton wallet address (used only once)
         if (op == op::take_wallet_address) {
-            throw_if(exc::already_inited, storage::init?);  
             throw_unless(exc::incorrect_sender, equal_slices(sender_address, storage::jetton_root_address));
             storage::init? = true;
             storage::jetton_wallet_address = in_msg_body~load_msg_addr();

@@ -61,7 +61,7 @@ export async function run(provider: NetworkProvider) {
         commission_factors,
 
         minRefPurchase: toNano(20),
-        defaultCashback: 1000,
+        defaultCashback: 1000n,
         refsDict,
         refWalletCode: refWalletCode,
         changeInvitee: false,
