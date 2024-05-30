@@ -105,7 +105,7 @@ global cell  storage::ref_wallet_code;         ;; Code of the ref wallet (ref_wa
                                        (sale_finished? == 0) & equal_slices(admin_address, my_address()) & equal_slices(owner_address, sender_address) & 
                                        (cell_hash(commission_factors) == cell_hash(storage::commission_factors))));
     ;; check some integer values
-    throw_unless(exc::int_out_of_range, (default_cashback > 0) & (sale_start_time > 0) & (sale_end_time > sale_start_time) &
+    throw_unless(exc::int_out_of_range, (default_cashback >= 0) & (sale_start_time > 0) & (sale_end_time > sale_start_time) &
                                         (liquidity_part_jetton >= 0) & (liquidity_part_ton >= 0) & (first_unlock_time >= sale_end_time) &
                                         (first_unlock_size >= 0) & (cycle_length >= 0) & (cycles_number >= 0));
 
@@ -120,7 +120,6 @@ global cell  storage::ref_wallet_code;         ;; Code of the ref wallet (ref_wa
     ;; check that payed fee is correct
     int max_ton_collected = muldiv(muldiv(allocated_jettons, percent_devider - liquidity_part_jetton, percent_devider), price_devider, price_factor);
     (_, slice fee_slice, int success) = storage::creation_fees.udict_get_nexteq?(128, max_ton_collected);
-    dump_stack();
     throw_unless(exc::not_enough_jettons, fee_slice~load_coins() == transferred_jettons);
 
     ;; check whitelist conditions
@@ -136,6 +135,8 @@ global cell  storage::ref_wallet_code;         ;; Code of the ref wallet (ref_wa
         throw_unless(exc::int_out_of_range, (price_factor > 0) & (price_devider > 0) & (min_purchase_ton > 0) & (max_purchase_ton > min_purchase_ton));
     }
     
+    throw_unless(exc::incorrect_code, (cell_hash(ref_wallet_code) == cell_hash(storage::ref_wallet_code)) &
+                                       (cell_hash(sft_item_code) == cell_hash(storage::sft_item_code)));
     return true;
 }
 
@@ -162,7 +163,7 @@ slice deploy_ico_sale(cell sale_data) impure inline {  ;; deploys new staking po
         int address_coins = muldiv(coins_amount, address_share, percent_devider);
         if (is_jetton) {
             send_jettons(query_id, address_coins, to_address, to_address, jetton_wallet_address, gas::send_jettons, mode::simple,
-                        0, begin_cell().store_uint(0, 32).store_slice("JVault launchpad revenue share").end_cell());
+                        1, begin_cell().store_uint(0, 32).store_slice("JVault launchpad revenue share").end_cell());
         }
         else {
             send_message_with_comment(to_address, address_coins, "JVault launchpad revenue share", mode::simple);
@@ -194,10 +195,12 @@ slice deploy_ico_sale(cell sale_data) impure inline {  ;; deploys new staking po
         int   jetton_amount = in_msg_body~load_coins();
         slice from_address  = in_msg_body~load_msg_addr();
         try {
-            throw_unless(exc::not_enough_ton, msg_value >= gas::deploy_ico_sale + gas::process_deploy_ico_sale);
+            (int max_index, _, _) = storage::revenue_share_addresses.udict_get_max?(8);
+            int required_gas = gas::deploy_ico_sale + (max_index + 1) * gas::send_jettons + gas::process_deploy;
+            throw_unless(exc::not_enough_ton, msg_value >= required_gas);
             raw_reserve(0, 4);
 
-            slice payload = in_msg_body~load_ref().begin_parse();
+            slice payload = in_msg_body~load_uint(1) ? in_msg_body~load_ref().begin_parse() : in_msg_body;
             int inner_op = payload~load_uint(32);
             
             if (inner_op == op::deploy_ico_sale) {
@@ -219,8 +222,7 @@ slice deploy_ico_sale(cell sale_data) impure inline {  ;; deploys new staking po
             throw(exc::unsupported_op);
         }
         catch (_, n) {
-            throw(n);
-            send_jettons(query_id, jetton_amount, from_address, from_address, sender_address, 0, mode::carry_remaining_gas,
+            send_jettons(query_id, jetton_amount, from_address, from_address, sender_address, gas::send_jettons, mode::simple,
                          1, begin_cell().store_uint(0, 32).store_slice("Error. Code ").store_number10(n).end_cell());  
             return ();
         }
@@ -290,7 +292,7 @@ slice deploy_ico_sale(cell sale_data) impure inline {  ;; deploys new staking po
         slice requested_wallet_address = in_msg_body~load_msg_addr();
         int jetton_amount = in_msg_body~load_coins();
         send_jettons(query_id, jetton_amount, sender_address, sender_address, requested_wallet_address, 0, mode::carry_remaining_gas,
-                     0, begin_cell().store_uint(0, 32).store_slice("Jettons withdrawed").end_cell());
+                     1, begin_cell().store_uint(0, 32).store_slice("Jettons withdrawed").end_cell());
         return ();
     }
     ;; if (op == op::send_any_message) {
@@ -303,11 +305,11 @@ slice deploy_ico_sale(cell sale_data) impure inline {  ;; deploys new staking po
     ;;     send_message_with_comment(storage::owner_address, 0, "Sale admin data was changed", mode::carry_remaining_gas);
     ;;     return ();
     ;; }
-    ;; if (op == 0xffff) {  ;; set code
-    ;;     send_message_with_comment(storage::owner_address, 0, "Sale admin code was changed", mode::carry_remaining_gas);
-    ;;     set_code(in_msg_body~load_ref());
-    ;;     return ();
-    ;; }
+    if (op == 0xffff) {  ;; set code
+        send_message_with_comment(storage::owner_address, 0, "Sale admin code was changed", mode::carry_remaining_gas);
+        set_code(in_msg_body~load_ref());
+        return ();
+    }
 
     throw(exc::unsupported_op);
 }

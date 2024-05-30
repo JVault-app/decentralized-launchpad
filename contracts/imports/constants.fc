@@ -90,8 +90,8 @@ const int exc::refund_requested = 56;
 const int exc::already_inited = 57;
 const int exc::already_started = 58;
 const int exc::incorrect_data = 59;
-
 const int exc::not_enough_ton = 60;
+const int exc::incorrect_code = 61;
 
 const int exc::wrong_chain = 333;
 const int exc::unsupported_op = 0xffff;
@@ -105,7 +105,7 @@ const int gas::burn_jettons    = 30000000;
 const int gas::provide_addr    = 20000000;
 
 const int gas::deploy_ico_sale = 100000000;
-const int gas::process_deploy_ico_sale = 30000000;
+const int gas::process_deploy  = 30000000;
 const int gas::deploy_sft      = 110000000;
 const int gas::deploy_ref      = 30000000;
 
@@ -134,7 +134,7 @@ const int mode::selfdestruct_on_empty   = 32;
 
 {- OTHER -}
 
-const int ONE_TON = 1000000000;
+const int   ONE_TON         = 1000000000;
 const int   percent_devider = 100000000;
 const slice burn_address    = "EQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAM9c"a;
 const int   uint_256_max    = 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff;

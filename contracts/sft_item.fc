@@ -144,7 +144,7 @@ global int   storage::change_invitee?;      ;; is changing user's invitee after 
             cell ref_data = in_msg_body~load_dict();
             if (storage::change_invitee?) {
                 ifnot (null?(ref_data)) {
-                    storage::ref_data = in_msg_body~load_dict();
+                    storage::ref_data = ref_data;
                 }
             }
             elseifnot (null?(storage::ref_data) | null?(ref_data)) {
@@ -178,7 +178,7 @@ global int   storage::change_invitee?;      ;; is changing user's invitee after 
                                     .store_coins(new_purchased_jettons)
                                     .store_slice(storage::sale_address)
                                     .store_uint(0, 1);
-            send_builder_message(storage::buyer_address, 0, msg_body, mode::pay_fees_separately);
+            send_builder_message(storage::buyer_address, 1, msg_body, mode::pay_fees_separately);
 
             ;; approve purchase
             builder msg_body = begin_cell()
