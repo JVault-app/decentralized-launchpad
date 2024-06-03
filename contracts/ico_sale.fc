@@ -295,7 +295,7 @@ builder store_pool_params_native_jetton(builder b, int jetton_root_workchain, in
         int ton_for_launchpad = muldiv(storage::ton_collected, cfs~load_uint(32), percent_devider);
         send_builder_message(storage::admin_address, ton_for_launchpad, begin_cell().store_uint(op::send_commissions, 32).store_uint(query_id, 64), mode::pay_fees_separately);
 
-        int ton_for_founder = storage::ton_collected - ton_for_launchpad - ton_for_liquidity - gas::end_sale;
+        int ton_for_founder = storage::ton_collected - ton_for_launchpad - ton_for_liquidity;
         if (ton_for_founder > 0) {
             send_message_with_comment(storage::creator_address, ton_for_founder, "JVault Launchpad payout for ICO creator", mode::pay_fees_separately);
         }
@@ -366,6 +366,7 @@ builder store_pool_params_native_jetton(builder b, int jetton_root_workchain, in
             storage::init? = true;
             storage::jetton_wallet_address = in_msg_body~load_msg_addr();
 
+            send_message_with_comment(storage::creator_address, 0, "Deploy successful", mode::carry_remaining_gas);
             save_data();
             return ();
         }
@@ -417,7 +418,6 @@ builder store_pool_params_native_jetton(builder b, int jetton_root_workchain, in
 
     ;; End sale (provide liquidity and send TON to creator & launchpad)
     if (op == op::end_sale) {
-        throw_unless(exc::out_of_gas, msg_value >= gas::end_sale);
         throw_unless(exc::sale_not_finished, now() > storage::sale_end_time);
         throw_if(exc::sale_finished, storage::sale_finished?);
         
@@ -483,7 +483,7 @@ builder store_pool_params_native_jetton(builder b, int jetton_root_workchain, in
         ifnot (in_msg_body.slice_refs_empty?()) {
             slice jetton_payload = in_msg_body~load_ref().begin_parse();
             if (jetton_payload~load_uint(32) == op::liquidity_fulfill) {
-                send_jettons(query_id, transferred_jettons, burn_address, my_address(), sender_address, 0, mode::carry_remaining_gas, 0, null());
+                send_jettons(query_id, transferred_jettons, burn_address, storage::creator_address, sender_address, 0, mode::carry_remaining_gas, 0, null());
                 return ();
             }
         }
@@ -524,6 +524,11 @@ builder store_pool_params_native_jetton(builder b, int jetton_root_workchain, in
             i += 1;
         }
         send_excess(sender_address, query_id, 0, mode::carry_remaining_balance);
+        return ();
+    }
+
+    if (op == op::excesses) {
+        send_excess(storage::creator_address, query_id, 0, mode::carry_remaining_gas);
         return ();
     }
 

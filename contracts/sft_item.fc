@@ -177,7 +177,8 @@ global int   storage::change_invitee?;      ;; is changing user's invitee after 
                                     .store_uint(query_id, 64)
                                     .store_coins(new_purchased_jettons)
                                     .store_slice(storage::sale_address)
-                                    .store_uint(0, 1);
+                                    .store_uint(0, 33)
+                                    .store_slice("Purchase successful");
             send_builder_message(storage::buyer_address, 1, msg_body, mode::pay_fees_separately);
 
             ;; approve purchase

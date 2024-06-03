@@ -104,15 +104,15 @@ const int gas::send_jettons    = 50000000;
 const int gas::burn_jettons    = 30000000;
 const int gas::provide_addr    = 20000000;
 
-const int gas::deploy_ico_sale = 100000000;
+const int gas::deploy_ico_sale = 35000000;
 const int gas::process_deploy  = 30000000;
 const int gas::deploy_sft      = 110000000;
 const int gas::deploy_ref      = 30000000;
 
 const int gas::purchase        = 150000000; ;; deploy_sft + update_wallet + gas
-const int gas::end_sale        = 500000000;
-const int gas::provide_ton     = 400000000;
-const int gas::provide_jetton  = 400000000;
+const int gas::end_sale        = 950000000;
+const int gas::provide_ton     = 40000000;
+const int gas::provide_jetton  = 50000000;
 
 const int gas::notify_buyer    = 10000000;
 const int gas::claim_jettons   = 60000000;

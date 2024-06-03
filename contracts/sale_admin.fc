@@ -149,7 +149,7 @@ slice deploy_ico_sale(cell sale_data) impure inline {  ;; deploys new staking po
                                 .store_uint(0, 1)
                             .end_cell();
     slice sale_address = get_address_by_state_init(sale_state_init);
-    send_deploy_message(sale_address, gas::deploy_ico_sale, sale_state_init, null(), mode::pay_fees_separately);
+    send_deploy_message(sale_address, gas::deploy_ico_sale + gas::end_sale, sale_state_init, null(), mode::pay_fees_separately);
 
     return sale_address;
 }
@@ -196,8 +196,6 @@ slice deploy_ico_sale(cell sale_data) impure inline {  ;; deploys new staking po
         slice from_address  = in_msg_body~load_msg_addr();
         try {
             (int max_index, _, _) = storage::revenue_share_addresses.udict_get_max?(8);
-            int required_gas = gas::deploy_ico_sale + (max_index + 1) * gas::send_jettons + gas::process_deploy;
-            throw_unless(exc::not_enough_ton, msg_value >= required_gas);
             raw_reserve(0, 4);
 
             slice payload = in_msg_body~load_uint(1) ? in_msg_body~load_ref().begin_parse() : in_msg_body;
@@ -205,6 +203,9 @@ slice deploy_ico_sale(cell sale_data) impure inline {  ;; deploys new staking po
             
             if (inner_op == op::deploy_ico_sale) {
                 throw_unless(exc::incorrect_sender, equal_slices(sender_address, storage::jetton_wallet_address));
+                int required_gas = gas::deploy_ico_sale + (max_index + 1) * gas::send_jettons + gas::process_deploy;
+                throw_unless(exc::not_enough_ton, msg_value >= required_gas + gas::end_sale);
+
                 cell sale_data = payload~load_ref();
                 if (check_sale_data(from_address, sale_data.begin_parse(), jetton_amount)) {
                     deploy_ico_sale(sale_data);
