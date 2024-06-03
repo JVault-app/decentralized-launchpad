@@ -118,7 +118,7 @@ global cell  storage::ref_wallet_code;         ;; Code of the ref wallet (ref_wa
     throw_unless(exc::int_out_of_range, (price_factor > 0) & (price_devider > 0) & (min_purchase_ton > 0) & (max_purchase_ton > min_purchase_ton));
 
     ;; check that payed fee is correct
-    int max_ton_collected = muldiv(muldiv(allocated_jettons, percent_devider - liquidity_part_jetton, percent_devider), price_devider, price_factor);
+    int max_ton_collected = muldiv(muldiv(allocated_jettons, percent_devider - liquidity_part_jetton, percent_devider), price_factor, price_devider);
     (_, slice fee_slice, int success) = storage::creation_fees.udict_get_nexteq?(128, max_ton_collected);
     throw_unless(exc::not_enough_jettons, fee_slice~load_coins() == transferred_jettons);
 

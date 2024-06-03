@@ -140,7 +140,7 @@ global int   storage::change_invitee?;      ;; is changing user's invitee after 
             storage::purchased_jettons += new_purchased_jettons;
             storage::collected_ton += new_collected_ton;
 
-            in_msg_body~skip_bits(32 + 32 + 32 + 16);
+            in_msg_body~skip_bits(32 + 32 + 32 + 16 + 1);
             cell ref_data = in_msg_body~load_dict();
             if (storage::change_invitee?) {
                 ifnot (null?(ref_data)) {
@@ -345,10 +345,7 @@ cell my_code() asm "MYCODE";
 
 (int, slice, slice, cell) get_wallet_data() method_id {
     load_data();
-    int claimed_percent = storage::claimed_times ? storage::first_unlock_size : 0;
-    claimed_percent += muldiv((storage::claimed_times - 1), percent_devider, storage::cycles_number);
-    int claimed_jettons = muldiv(storage::purchased_jettons, claimed_percent, percent_devider);
-    return (storage::purchased_jettons - claimed_jettons, storage::buyer_address, storage::sale_address, my_code());
+    return (storage::purchased_jettons - storage::claimed_jettons, storage::buyer_address, storage::sale_address, my_code());
 }
 
 ;; slice get_authority_address() method_id {
