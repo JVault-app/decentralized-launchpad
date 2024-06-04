@@ -304,7 +304,7 @@ builder store_pool_params_native_jetton(builder b, int jetton_root_workchain, in
         }
     }
     
-    send_message_with_comment(sender_address, msg_value, "Tokensale compeleted", mode::pay_fees_separately);
+    send_message_with_comment(sender_address, msg_value, "Tokensale completed", mode::pay_fees_separately);
     storage::sale_finished? = true;
     save_data();
     return ();
