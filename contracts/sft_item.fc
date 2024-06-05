@@ -104,8 +104,9 @@ global int   storage::change_invitee?;      ;; is changing user's invitee after 
             save_data();
         }
         if (op == op::claim) {  ;; claim unsuccessful -> ico failed
+            in_msg_body~skip_bits(64);
             storage::claimed_times = 0;
-            storage::claimed_jettons = 0;
+            storage::claimed_jettons -= in_msg_body~load_coins();
             save_data();
         }
         return ();
@@ -158,9 +159,9 @@ global int   storage::change_invitee?;      ;; is changing user's invitee after 
             cell msg_body = begin_cell()
                                 .store_uint(op::cancel_purchase, 32)
                                 .store_uint(query_id, 64)
+                                .store_coins(new_purchased_jettons)                                
                                 .store_uint(storage::index, 256)
                                 .store_slice(storage::buyer_address)
-                                .store_coins(new_purchased_jettons)
                                 .store_coins(new_collected_ton)
                                 .store_maybe_ref(storage::ref_data)
                             .end_cell();
@@ -185,9 +186,9 @@ global int   storage::change_invitee?;      ;; is changing user's invitee after 
             builder msg_body = begin_cell()
                                     .store_uint(op::approve_purchase, 32)
                                     .store_uint(query_id, 64)
+                                    .store_coins(new_purchased_jettons)
                                     .store_uint(storage::index, 256)
                                     .store_slice(storage::buyer_address)
-                                    .store_coins(new_purchased_jettons)
                                     .store_coins(new_collected_ton)
                                     .store_maybe_ref(storage::ref_data);
             send_cell_message(storage::sale_address, 0, msg_body.end_cell(), mode::carry_remaining_balance);
@@ -215,9 +216,9 @@ global int   storage::change_invitee?;      ;; is changing user's invitee after 
         builder msg_body = begin_cell()
                                 .store_uint(op::claim, 32)
                                 .store_uint(query_id, 64)
+                                .store_coins(available_jettons)
                                 .store_uint(storage::index, 256)
                                 .store_slice(storage::buyer_address)
-                                .store_coins(available_jettons)
                                 .store_coins(muldiv(storage::collected_ton, available_percent, percent_devider))
                                 .store_maybe_ref(storage::ref_data);
         send_cell_message(storage::sale_address, 0, msg_body.end_cell(), sending_mode);
@@ -236,9 +237,9 @@ global int   storage::change_invitee?;      ;; is changing user's invitee after 
         builder msg_body = begin_cell()
                                 .store_uint(op::request_refund, 32)
                                 .store_uint(query_id, 64)
+                                .store_coins(storage::purchased_jettons)
                                 .store_uint(storage::index, 256)
                                 .store_slice(storage::buyer_address)
-                                .store_coins(storage::purchased_jettons)
                                 .store_coins(storage::collected_ton)
                                 .store_maybe_ref(storage::ref_data);
         send_cell_message(storage::sale_address, 0, msg_body.end_cell(), mode::carry_remaining_balance);

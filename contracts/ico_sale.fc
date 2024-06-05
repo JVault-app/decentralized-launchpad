@@ -427,13 +427,13 @@ builder store_pool_params_native_jetton(builder b, int jetton_root_workchain, in
 
     ;; messages from SBT
     if ((op == op::claim) | (op == op::cancel_purchase) | (op == op::approve_purchase) | (op == op::request_refund)) {
+        int jetton_amount = in_msg_body~load_coins();
         int sft_index = in_msg_body~load_uint(256);
         slice expected_address = get_address_by_state_init(calculate_nft_item_state_init(sft_index, storage::sft_item_code, my_address(), 256));
         throw_unless(exc::incorrect_sender, equal_slices(expected_address, sender_address));
         
         ;; slice sft_requester_address = begin_cell().store_uint(1024, 11).store_uint(sft_index, 256).end_cell().begin_parse();
         slice sft_buyer_address = in_msg_body~load_msg_addr();
-        int jetton_amount = in_msg_body~load_coins();
         int ton_amount = in_msg_body~load_coins();
 
         if (op == op::claim) {
