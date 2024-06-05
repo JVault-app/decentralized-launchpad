@@ -573,7 +573,8 @@ builder store_pool_params_native_jetton(builder b, int jetton_root_workchain, in
 }
 
 
-;; Jetton
+;; GET Methods
+
 
 (int, int, slice, cell, cell) get_jetton_data() method_id {
     load_data();
@@ -588,80 +589,12 @@ slice get_wallet_address(slice owner_address) method_id {
     return get_address_by_state_init(state_init);
 }
 
+
 slice get_ref_address(slice owner_address) method_id {
     load_data();
     cell state_init = calculate_ref_wallet_state_init(owner_address, storage::ref_wallet_code, storage::sale_end_time);
     return get_address_by_state_init(state_init);
 }
-
-
-;; ;; SBT
-;;
-;; (int, cell, slice) get_collection_data() method_id {
-;;     load_data();
-;;     slice cs = storage::content.begin_parse();
-;;     return (uint_256_max, cs~load_ref(), storage::creator_address);
-;; }
-
-
-;; slice get_nft_address_by_index(int index) method_id {
-;;     load_data();
-;;     cell state_init = calculate_nft_item_state_init(index, storage::sft_item_code, my_address());
-;;     return get_address_by_state_init(state_init);
-;; }
-
-
-;; (int, int, slice) royalty_params() method_id {
-;;     return (0, 100, my_address());
-;; }
-
-;; cell get_nft_content(int index, cell individual_nft_content) method_id {
-;;     load_data();
-;;     slice cs = storage::content.begin_parse();
-;;     cs~load_ref();
-;;     cell common_content_dict = cs~load_dict();
-;;     (slice delimiter_sc, int f) = common_content_dict~udict_delete_get?(256, "delimiter"H);
-;;     int delimiter = 9;
-;;     if (f) {
-;;         delimiter = delimiter_sc~load_uint(8);
-;;     }
-
-;;     slice individual_nft_content_cs = individual_nft_content.begin_parse();
-;;     int number = individual_nft_content_cs~load_coins();
-;;     builder string = begin_cell().store_uint(0, 2).store_slice("Current share: ");
-
-;;     int b = 1;
-;;     repeat (delimiter) {
-;;         b *= 10;
-;;     }
-;;     (int quot, int reminder) = number.divmod(b);
-;;     int res = 0;
-;;     do {
-;;         (quot, res) = quot.divmod(10);
-;;         string = string.store_uint(res + 48, 256);
-;;     } until (quot == 0);
-
-;;     string = string.store_slice(".");
-
-;;     b = 0;
-;;     do {
-;;         (reminder, res) = reminder.divmod(10);
-;;         string = string.store_uint(res + 48, 256);
-;;         b += 1;
-;;     } until ((reminder == 0) | (b == 4));
-
-;;     (slice ticker, f) = common_content_dict~udict_delete_get?(256, "ticker"H);
-;;     ifnot (f) {
-;;         ticker = " tokens";
-;;     }
-;;     string = string.store_ref(begin_cell().store_slice(ticker).end_cell());
-;;     common_content_dict~udict_set_ref(256, "description"H, string.end_cell());
-        
-;;     return (begin_cell()
-;;                 .store_uint(0, 8)  ;; onchain tag
-;;                 .store_dict(common_content_dict)
-;;             .end_cell());
-;; }
 
 
 (int, slice, slice, cell, cell, cell, cell, int, int, cell, cell, int, int, int, int,

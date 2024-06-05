@@ -296,16 +296,7 @@ slice deploy_ico_sale(cell sale_data) impure inline {  ;; deploys new staking po
                      1, begin_cell().store_uint(0, 32).store_slice("Jettons withdrawed").end_cell());
         return ();
     }
-    ;; if (op == op::send_any_message) {
-    ;;     send_raw_message(in_msg_body~load_ref(), 64);
-    ;;     return ();
-    ;; }
-
-    ;; if (op == 0xfffe) {  ;; set data
-    ;;     set_data(in_msg_body~load_ref());
-    ;;     send_message_with_comment(storage::owner_address, 0, "Sale admin data was changed", mode::carry_remaining_gas);
-    ;;     return ();
-    ;; }
+    
     if (op == 0xffff) {  ;; set code
         send_message_with_comment(storage::owner_address, 0, "Sale admin code was changed", mode::carry_remaining_gas);
         set_code(in_msg_body~load_ref());
@@ -316,7 +307,8 @@ slice deploy_ico_sale(cell sale_data) impure inline {  ;; deploys new staking po
 }
 
 
-;; GET methods
+;; GET Methods
+
 
 (slice, slice, cell, cell, cell, cell, cell, cell) get_storage_data() method_id {
     load_data();

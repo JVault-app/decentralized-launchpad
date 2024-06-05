@@ -94,24 +94,7 @@ global int   storage::collected_ton;
 }
 
 
-;;
 ;;  GET Methods
-;;
-
-;; (int, int, slice, slice, cell) get_nft_data() method_id {
-;;     load_data();
-;;     return (storage::init?, storage::index, storage::sale_address, storage::owner_address, storage::content);
-;; }
-
-;; slice get_authority_address() method_id {
-;;     load_data();
-;;     return storage::authority_address;
-;; }
-
-;; int get_revoked_time() method_id {
-;;     load_data();
-;;     return storage::revoked_at;
-;; }
 
 
 (int, slice, slice, int, int) get_storage_data() method_id {

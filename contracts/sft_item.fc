@@ -176,10 +176,10 @@ global int   storage::change_invitee?;      ;; is changing user's invitee after 
                                     .store_uint(op::transfer_notification, 32)
                                     .store_uint(query_id, 64)
                                     .store_coins(new_purchased_jettons)
-                                    .store_slice(storage::sale_address)
+                                    .store_slice(null_addr())
                                     .store_uint(0, 33)
                                     .store_slice("Purchase successful");
-            send_builder_message(storage::buyer_address, 1, msg_body, mode::pay_fees_separately);
+            send_cell_message(storage::buyer_address, 1, msg_body.end_cell(), mode::pay_fees_separately);
 
             ;; approve purchase
             builder msg_body = begin_cell()
@@ -338,9 +338,8 @@ global int   storage::change_invitee?;      ;; is changing user's invitee after 
 }
 
 
-;;
 ;;  GET Methods
-;;
+
 
 cell my_code() asm "MYCODE";
 
@@ -348,16 +347,6 @@ cell my_code() asm "MYCODE";
     load_data();
     return (storage::purchased_jettons - storage::claimed_jettons, storage::buyer_address, storage::sale_address, my_code());
 }
-
-;; slice get_authority_address() method_id {
-;;     load_data();
-;;     return null_addr();
-;; }
-
-;; int get_revoked_time() method_id {
-;;     load_data();
-;;     return 0;
-;; }
 
 
 (int, int, slice, slice, int, int, int, int, int, int, int, int, cell, int, int) get_storage_data() method_id {
