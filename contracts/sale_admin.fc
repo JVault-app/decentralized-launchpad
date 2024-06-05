@@ -109,32 +109,43 @@ global cell  storage::ref_wallet_code;         ;; Code of the ref wallet (ref_wa
                                         (liquidity_part_jetton >= 0) & (liquidity_part_ton >= 0) & (first_unlock_time >= sale_end_time) &
                                         (first_unlock_size >= 0) & (cycle_length >= 0) & (cycles_number >= 0));
 
+    int max_price_factor = 0;
+    int max_price_devider = 1;
+    
     ;; check purchase conditions
     slice purchase_conditions_parsed = purchase_conditions.begin_parse();
-    int price_factor     = purchase_conditions_parsed~load_uint(128);
-    int price_devider    = purchase_conditions_parsed~load_uint(128);
-    int min_purchase_ton = purchase_conditions_parsed~load_coins();
-    int max_purchase_ton = purchase_conditions_parsed~load_coins();
-    throw_unless(exc::int_out_of_range, (price_factor > 0) & (price_devider > 0) & (min_purchase_ton > 0) & (max_purchase_ton > min_purchase_ton));
-
-    ;; check that payed fee is correct
-    int max_ton_collected = muldiv(muldiv(allocated_jettons, percent_devider - liquidity_part_jetton, percent_devider), price_factor, price_devider);
-    (_, slice fee_slice, int success) = storage::creation_fees.udict_get_nexteq?(128, max_ton_collected);
-    throw_unless(exc::not_enough_jettons, fee_slice~load_coins() == transferred_jettons);
+    if (purchase_conditions_parsed.slice_bits()) {
+        int price_factor     = purchase_conditions_parsed~load_uint(128);
+        int price_devider    = purchase_conditions_parsed~load_uint(128);
+        int min_purchase_ton = purchase_conditions_parsed~load_coins();
+        int max_purchase_ton = purchase_conditions_parsed~load_coins();
+        throw_unless(exc::int_out_of_range, (price_factor > 0) & (price_devider > 0) & (min_purchase_ton >= 0) & (max_purchase_ton >= min_purchase_ton) & (max_purchase_ton > 0));
+        max_price_factor = price_factor;
+        max_price_devider = price_devider;
+    }
 
     ;; check whitelist conditions
     repeat(slice_refs(purchase_conditions_parsed)) {
         slice tmp = purchase_conditions_parsed~load_ref().begin_parse();
         tmp~load_msg_addr();
-        price_factor     = tmp~load_uint(128);
-        price_devider    = tmp~load_uint(128);
-        min_purchase_ton = tmp~load_coins();
-        max_purchase_ton = tmp~load_coins();
+        int price_factor     = tmp~load_uint(128);
+        int price_devider    = tmp~load_uint(128);
+        int min_purchase_ton = tmp~load_coins();
+        int max_purchase_ton = tmp~load_coins();
         tmp~load_ref();
         tmp.end_parse();
-        throw_unless(exc::int_out_of_range, (price_factor > 0) & (price_devider > 0) & (min_purchase_ton > 0) & (max_purchase_ton > min_purchase_ton));
+        throw_unless(exc::int_out_of_range, (price_factor > 0) & (price_devider > 0) & (min_purchase_ton >= 0) & (max_purchase_ton >= min_purchase_ton) & (max_purchase_ton > 0));
+        if (muldiv(max_purchase_ton, price_factor, price_devider) > muldiv(max_purchase_ton, max_price_factor, max_price_devider)) {
+            max_price_factor = price_factor;
+            max_price_devider = price_devider;
+        }
     }
-    
+
+    ;; check that payed fee is correct
+    int max_ton_collected = muldiv(muldiv(allocated_jettons, percent_devider - liquidity_part_jetton, percent_devider), max_price_factor, max_price_devider);
+    (_, slice fee_slice, int success) = storage::creation_fees.udict_get_nexteq?(128, max_ton_collected);
+    throw_unless(exc::not_enough_jettons, fee_slice~load_coins() == transferred_jettons);
+
     throw_unless(exc::incorrect_code, (cell_hash(ref_wallet_code) == cell_hash(storage::ref_wallet_code)) &
                                        (cell_hash(sft_item_code) == cell_hash(storage::sft_item_code)));
     return true;
