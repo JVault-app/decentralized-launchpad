@@ -311,13 +311,16 @@ builder store_pool_params_native_jetton(builder b, int jetton_root_workchain, in
 }
 
 
-(slice, int, int) get_referral_data(slice in_msg_body) inline {
+(slice, int, int) get_referral_data(slice in_msg_body, slice buyer_address) inline {
     slice ref_address = null();
     int discount_factor = 0;
     int cashback_factor = 0;
     ifnot (in_msg_body.slice_refs_empty?()) {
         slice from_address = in_msg_body~load_ref().begin_parse();
-        (int workchain, int from_address_int) = parse_std_addr(from_address);
+        (_, int from_address_int) = parse_std_addr(from_address);
+        if (equal_slices(buyer_address, from_address)) {
+            return (ref_address, discount_factor, cashback_factor);
+        }
 
         (slice refs_conditions, int success) = storage::refs_dict.udict_get?(256, from_address_int);
         if (success) {  ;; special conditions
@@ -410,7 +413,7 @@ builder store_pool_params_native_jetton(builder b, int jetton_root_workchain, in
         int min_purchase_ton = purchase_conditions_parsed~load_coins();
         int max_purchase_ton = purchase_conditions_parsed~load_coins();
 
-        (slice ref_address, int discount_factor, int cashback_factor) = get_referral_data(in_msg_body);
+        (slice ref_address, int discount_factor, int cashback_factor) = get_referral_data(in_msg_body, buyer_address);
 
         sell_tokens(query_id, msg_value, sender_address, buyer_address, price_factor * (percent_devider - discount_factor), price_devider * percent_devider, min_purchase_ton, max_purchase_ton, ref_address, cashback_factor);
         return ();
