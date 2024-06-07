@@ -195,7 +195,7 @@ builder store_pool_params_native_jetton(builder b, int jetton_root_workchain, in
 
     throw_unless(exc::less_than_min_purchase, msg_value >= min_purchase_ton);
     throw_unless(exc::more_than_max_purchase, msg_value <= max_purchase_ton);
-    throw_unless(exc::not_enough_jettons, storage::jettons_sold < jettons_for_sale);
+    throw_unless(exc::not_enough_jettons, storage::jettons_sold <= jettons_for_sale);
 
     (int worckchain, int requester_address_int) = parse_std_addr(request_address);
 
