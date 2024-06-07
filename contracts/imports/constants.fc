@@ -111,8 +111,8 @@ const int gas::deploy_ref      = 30000000;
 
 const int gas::purchase        = 150000000; ;; deploy_sft + update_wallet + gas
 const int gas::end_sale        = 950000000;
-const int gas::provide_ton     = 40000000;
-const int gas::provide_jetton  = 50000000;
+const int gas::provide_ton     = 400000000;
+const int gas::provide_jetton  = 500000000;
 
 const int gas::notify_buyer    = 10000000;
 const int gas::claim_jettons   = 60000000;
