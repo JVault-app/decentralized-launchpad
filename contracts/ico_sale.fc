@@ -155,8 +155,6 @@ builder store_pool_params_native_jetton(builder b, int jetton_root_workchain, in
 }
 
 () provide_liquidity(int query_id, int jetton_amount, int ton_amount, slice response_address) impure inline {
-    ton_amount -= ONE_TON;
-
     (int jetton_root_workchain, int jetton_root_address_hash) = parse_std_addr(storage::jetton_root_address);
     cell fulfill_payload = begin_cell().store_uint(op::liquidity_fulfill, 32).end_cell();
     cell reject_payload = begin_cell().store_uint(op::liquidity_reject, 32).end_cell();
