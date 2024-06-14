@@ -67,7 +67,7 @@ export async function run(provider: NetworkProvider) {
         changeInvitee: false,
     }, await compile('IcoSale')));
 
-    await icoSale.sendDeploy(provider.sender(), toNano('0.2'));
+    await icoSale.sendDeploy(provider.sender(), toNano('1.05'));
 
     await provider.waitForDeploy(icoSale.address);
 

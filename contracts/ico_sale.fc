@@ -271,8 +271,8 @@ builder store_pool_params_native_jetton(builder b, int jetton_root_workchain, in
 () finish_sale(slice sender_address, int msg_value, int query_id) impure inline {
     ;; Sale failed
     if (storage::ton_collected < storage::min_ton_collected) { 
-        send_jettons(query_id, storage::allocated_jettons, storage::creator_address, sender_address, storage::jetton_wallet_address,
-                     gas::send_jettons, mode::simple, 1, begin_cell().store_uint(0, 32).store_slice("Unfortunately, your tokensale was unsuccessful").end_cell());
+        send_jettons(query_id, storage::allocated_jettons, storage::creator_address, storage::creator_address, storage::jetton_wallet_address,
+                     gas::end_sale, mode::simple, 1, begin_cell().store_uint(0, 32).store_slice("Unfortunately, your tokensale was unsuccessful").end_cell());
     }
     ;; Sale succeed
     else {

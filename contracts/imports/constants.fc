@@ -110,7 +110,7 @@ const int gas::deploy_sft      = 110000000;
 const int gas::deploy_ref      = 30000000;
 
 const int gas::purchase        = 150000000; ;; deploy_sft + update_wallet + gas
-const int gas::end_sale        = 950000000;
+const int gas::end_sale        = 1000000000;
 const int gas::provide_ton     = 400000000;
 const int gas::provide_jetton  = 500000000;
 

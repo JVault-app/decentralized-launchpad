@@ -142,7 +142,7 @@ describe('Ico', () => {
     });
 
     it('should deploy ico sale', async () => {
-        let res = await user1JettonWalletAddress.sendTransfer(user1.getSender(), toNano(2), toNano(100), adminAddress.address, user1.address, null, toNano("1.2"), SaleAdmin.createRequestSaleDeployMessage(conf))
+        let res = await user1JettonWalletAddress.sendTransfer(user1.getSender(), toNano(2), toNano(100), adminAddress.address, user1.address, null, toNano("1.25"), SaleAdmin.createRequestSaleDeployMessage(conf))
         printTransactionFees(res.transactions)
         let t = res.transactions.find(el => el.inMessage?.body.asSlice().loadUint(32) == 0x7362d09c)
 

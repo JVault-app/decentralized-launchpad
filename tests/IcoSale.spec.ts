@@ -124,7 +124,7 @@ describe('Ico', () => {
 
         ico = blockchain.openContract(IcoSale.createFromConfig(conf, icoSaleCode))
         jettonWalletAddress =blockchain.openContract(JettonWallet.createFromAddress(await jettonRootAddress.getWalletAddress(ico.address)))
-        await ico.sendDeploy(adminAddress.getSender(), toNano(1))
+        await ico.sendDeploy(adminAddress.getSender(), toNano("1.045"))
     });
 
     it('should deploy', async () => {
