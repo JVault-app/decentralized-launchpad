@@ -55,10 +55,14 @@ slice pack_std_address(int workchain, int hash) inline {
 
 
 () send_message_with_comment(slice to_address, int value, slice comment, int sending_mode) impure inline {
-    builder body = begin_cell()
-                    .store_uint(0, 32)
-                    .store_slice(comment);
-    return send_builder_message(to_address, value, body, sending_mode);
+    cell msg = begin_cell()
+                    .store_uint(0x18, 6)
+                    .store_slice(to_address)
+                    .store_coins(value)
+                    .store_uint(0, 1 + 4 + 4 + 64 + 32 + 1 + 1 + 32)
+                    .store_slice(comment)
+                .end_cell();
+    return send_raw_message(msg, sending_mode);
 }
 
 
