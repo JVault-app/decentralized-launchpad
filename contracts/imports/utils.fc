@@ -2,8 +2,8 @@ slice null_addr() asm "b{00} PUSHSLICE";
 
 cell  preload_ref_index(slice s, int n) asm "PLDREFVAR";
 
-slice pack_std_address(int workchain, int hash) inline {
-    return begin_cell().store_uint(4, 3).store_int(workchain, 8).store_uint(hash, 256).end_cell().begin_parse();
+slice pack_std_address(int hash) inline {
+    return begin_cell().store_uint(1024, 11).store_uint(hash, 256).end_cell().begin_parse();
 }
 
 () send_excess(slice to_address, int query_id, int value, int sending_mode) impure inline {
@@ -68,21 +68,18 @@ slice pack_std_address(int workchain, int hash) inline {
 
 cell calculate_nft_item_state_init(int item_index, cell nft_item_code, slice collection_address, int index_size) inline {
     cell data = begin_cell().store_uint(item_index, index_size).store_slice(collection_address).end_cell();
-    return begin_cell().store_uint(0, 2).store_maybe_ref(nft_item_code).store_maybe_ref(data).store_uint(0, 1).end_cell();
+    return begin_cell().store_uint(6, 5).store_ref(nft_item_code).store_ref(data).end_cell();
 }
 
 
 cell calculate_ref_wallet_state_init(slice owner_address, cell ref_wallet_code, int sale_end_time) inline {
     cell data = begin_cell().store_slice(owner_address).store_slice(my_address()).store_uint(sale_end_time, 32).store_int(false, 1).end_cell();
-    return begin_cell().store_uint(0, 2).store_dict(ref_wallet_code).store_dict(data).store_uint(0, 1).end_cell();
+    return begin_cell().store_uint(6, 5).store_ref(ref_wallet_code).store_ref(data).end_cell();
 }
 
 
 slice get_address_by_state_init(cell state_init) inline { 
-    return begin_cell().store_uint(1024, 11)
-                        .store_uint(cell_hash(state_init), 256)
-                        .end_cell()
-                        .begin_parse();
+    return pack_std_address(cell_hash(state_init));
 }
 
 
