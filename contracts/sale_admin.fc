@@ -76,6 +76,7 @@ global cell  storage::ref_wallet_code;         ;; Code of the ref wallet (ref_wa
     int   jettons_added?        = sale_data~load_int(1);
     int   sale_finished?        = sale_data~load_int(1);
     int   change_invitee?       = sale_data~load_int(1);
+    int   return_jettons?       = sale_data~load_int(1);
 
     slice collection_info       = sale_data~load_ref().begin_parse();
     slice admin_address         = collection_info~load_msg_addr();
@@ -84,17 +85,16 @@ global cell  storage::ref_wallet_code;         ;; Code of the ref wallet (ref_wa
     cell  sft_item_code         = collection_info~load_ref();
 
     slice internal_ds           = sale_data~load_ref().begin_parse(); ;; data: 267 + 267 + 267 + 128 + 32 + 1 = 962; refs: purchaise_conditions + commission_factors = 2
-    slice jetton_root_address         = internal_ds~load_msg_addr();
-    slice native_vault_address        = internal_ds~load_msg_addr();
-    slice jetton_vault_address        = internal_ds~load_msg_addr();
+    slice jetton_root_address   = internal_ds~load_msg_addr();
+    slice native_vault_address  = internal_ds~load_msg_addr();
+    slice jetton_vault_address  = internal_ds~load_msg_addr();
     
-    int min_ref_purchase            = internal_ds~load_coins();
-    ;; storage::default_discount      = ref_conditions~load_uint(32);
-    int default_cashback            = internal_ds~load_uint(32);
-    cell purchase_conditions         = internal_ds~load_ref();
-    cell commission_factors          = internal_ds~load_ref();
-    cell refs_dict                   = internal_ds~load_dict();
-    cell ref_wallet_code             = internal_ds~load_ref();
+    int min_ref_purchase        = internal_ds~load_coins();
+    int default_cashback        = internal_ds~load_uint(32);
+    cell purchase_conditions    = internal_ds~load_ref();
+    cell commission_factors     = internal_ds~load_ref();
+    cell refs_dict              = internal_ds~load_dict();
+    cell ref_wallet_code        = internal_ds~load_ref();
     
     collection_info.end_parse();
     internal_ds.end_parse();
@@ -152,7 +152,7 @@ global cell  storage::ref_wallet_code;         ;; Code of the ref wallet (ref_wa
 }
 
 
-slice deploy_ico_sale(cell sale_data) impure inline {  ;; deploys new staking pool contract and returns its address
+slice deploy_ico_sale(cell sale_data) impure inline {  ;; deploys new ico contract and returns its address
     cell sale_state_init = begin_cell()
                                 .store_uint(0, 2)
                                 .store_dict(storage::ico_sale_code)

@@ -120,11 +120,12 @@ describe('Ico', () => {
             refsDict,
             refWalletCode: refWalletCode,
             changeInvitee: false,
+            returnJettons: false,
         }
 
         ico = blockchain.openContract(IcoSale.createFromConfig(conf, icoSaleCode))
         jettonWalletAddress =blockchain.openContract(JettonWallet.createFromAddress(await jettonRootAddress.getWalletAddress(ico.address)))
-        await ico.sendDeploy(adminAddress.getSender(), toNano("1.045"))
+        await ico.sendDeploy(adminAddress.getSender(), toNano("1.055"))
     });
 
     it('should deploy', async () => {
@@ -752,6 +753,8 @@ describe('Ico', () => {
         expect((await user2ClaimWl.getStorageData()).purchased_jettons).toEqual(value * conf.purchaseConditions.wlCondition1!!.priceDevider / conf.purchaseConditions.wlCondition1!!.priceFactor)
 
         expect((await user1Ref.getStorageData()).collected_ton).toEqual(value * BigInt(conf.defaultCashback) / PERCENT_DEVIDER)
+        console.log((await blockchain.getContract(ico.address)).balance)
+
         // expect((await user2ClaimWl.getStorageData()).collected_ton).toBeGreaterThan(toNano(29999))
         // expect((await user2ClaimWl.getStorageData()).collected_ton).toBeLessThanOrEqual(toNano(30000))
         // expect((await user2ClaimWl.getStorageData()).purchased_jettons).toBeGreaterThan(toNano(29999) * conf.purchaseConditions.wlCondition1!!.priceDevider / conf.purchaseConditions.wlCondition1!!.priceFactor)

@@ -114,6 +114,7 @@ export type IcoSaleConfig = {
     refsDict: Dictionary<Address, RefsDictValue>;
     refWalletCode: Cell; 
     changeInvitee: boolean;
+    returnJettons: boolean;
 };
 
 export type IcoSaleContent = {
@@ -148,6 +149,7 @@ export function IcoSaleConfigToCell(config: IcoSaleConfig): Cell {
             .storeBit(false)
             .storeBit(false)
             .storeBit(config.changeInvitee)
+            .storeBit(config.returnJettons)
 
             .storeRef(
                 beginCell()

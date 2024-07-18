@@ -132,6 +132,7 @@ describe('Ico', () => {
             refsDict,
             refWalletCode: refWalletCode,
             changeInvitee: false,
+            returnJettons: true,
         }
 
         ico = blockchain.openContract(IcoSale.createFromConfig(conf, icoSaleCode))
@@ -149,8 +150,8 @@ describe('Ico', () => {
         let user2Jetton = blockchain.openContract(JettonWallet.createFromAddress(await jettonRootAddress.getWalletAddress(user2.address)))
         expect(await user1JettonWalletAddress.getJettonBalance()).toEqual(toNano(60))
         expect(await user2Jetton.getJettonBalance()).toEqual(toNano(40))
-        // const data = await ico.getStorageData()
-        // expect(data.jetton_wallet_address).toEqualAddress(await jettonRootAddress.getWalletAddress(ico.address))
-        // expect(data.init).toBeTruthy()
+        const data = await ico.getStorageData()
+        expect(data.jetton_wallet_address).toEqualAddress(await jettonRootAddress.getWalletAddress(ico.address))
+        expect(data.init).toBeTruthy()
     });
 });

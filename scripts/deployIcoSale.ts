@@ -65,6 +65,7 @@ export async function run(provider: NetworkProvider) {
         refsDict,
         refWalletCode: refWalletCode,
         changeInvitee: false,
+        returnJettons: false
     }, await compile('IcoSale')));
 
     await icoSale.sendDeploy(provider.sender(), toNano('1.05'));

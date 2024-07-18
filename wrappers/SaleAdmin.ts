@@ -98,6 +98,21 @@ export class SaleAdmin implements Contract {
         })
     }
 
+    async sendChangeCodes(provider: ContractProvider, via: Sender, value: bigint, icoSaleCode: Cell, sftItemCode: Cell, refWalletCode: Cell, queryId: number | bigint = 0) {
+        await provider.internal(via, {
+            value,
+            sendMode: SendMode.PAY_GAS_SEPARATELY,
+            body: beginCell().storeUint(OpCodes.CHANGE_CODES, 32).storeUint(queryId, 64).storeRef(icoSaleCode).storeRef(sftItemCode).storeRef(refWalletCode).endCell()
+        })
+    };
+
+    async sendSetCode(provider: ContractProvider, via: Sender, value: bigint, saleAdminCode: Cell, queryId: number | bigint = 0) {
+        await provider.internal(via, {
+            value,
+            sendMode: SendMode.PAY_GAS_SEPARATELY,
+            body: beginCell().storeUint(0xffff, 32).storeUint(queryId, 64).storeRef(saleAdminCode).endCell()
+        })
+    }
     static createRequestSaleDeployMessage(conf: IcoSaleConfig) {
         return beginCell().storeUint(OpCodes.DEPLOY_ICO_SALE, 32).storeRef(IcoSaleConfigToCell(conf)).endCell()
     }

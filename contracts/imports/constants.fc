@@ -63,7 +63,7 @@ const int op::deposit_liquidity_native = 0xd55e4686;
 const int op::deposit_liquidity_jetton = 0x40e108d6;
 const int op::liquidity_fulfill        = 0xb9b68ef4;
 const int op::liquidity_reject         = 0x9364a426; 
-
+const int op::dedust_payout            = 0x474f86cf;
 {- EXCEPTIONS -}
 
 const int exc::out_of_gas = 13;

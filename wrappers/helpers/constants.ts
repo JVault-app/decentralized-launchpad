@@ -38,6 +38,7 @@ export const OpCodes = {
     END_SALE:                 0xCB81BC08,
  
     CHANGE_JETTON_WALLET:     0x781b74d6,
+    CHANGE_CODES:             0xb97d7c00,
     UPDATE_REF_WALLET:        0x940298FC, 
     CLAIM_REF:                0x1F7B4E41,
     DEPLOY_REFS:              0xd6078a7b,

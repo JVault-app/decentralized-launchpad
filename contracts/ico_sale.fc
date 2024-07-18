@@ -41,16 +41,14 @@ global slice storage::native_vault_address;    ;; native vault address (MsgAddre
 global slice storage::jetton_vault_address;    ;; jetton vault address (MsgAddress)
 
 global slice storage::jetton_wallet_address;   ;; jetton wallet address of this smc (MsgAddress)
-global int   storage::jettons_added?;          ;; Were jettons added to smart contract? (uint1)
-global int   storage::sale_finished?;          ;; Were collected TON sent to recipients? (uint1)
-global int   storage::change_invitee?;         ;; is changing user's invitee after first purchase allowed 
-
-
-global int jettons_for_sale;
+global int   storage::jettons_added?;          ;; Were jettons added to smart contract? (int1)
+global int   storage::sale_finished?;          ;; Were collected TON sent to recipients? (int1)
+global int   storage::change_invitee?;         ;; is changing user's invitee after first purchase allowed? (int1)
+global int   storage::return_jettons?;         ;; will unsold jettons be returned to creator? (int1)
 
 
 () load_data() impure inline {
-    slice ds = get_data().begin_parse(); ;; data: 1 + 32 + 32 + 128 + 128 + 32 + 32 + 128 + 128 + 32 + 32 + 32 + 16 + 267 + 1 + 1 + 1 = 1023
+    slice ds = get_data().begin_parse(); ;; data: 1 + 32 + 32 + 124 + 124 + 32 + 32 + 124 + 124 + 32 + 32 + 32 + 16 + 267 + 1 + 1 + 1 = 1023
                                          ;; refs: collection_info + internal_ds + ref_conditions = 3
     
     storage::init?                 = ds~load_int(1);
@@ -75,6 +73,7 @@ global int jettons_for_sale;
     storage::jettons_added?        = ds~load_int(1);
     storage::sale_finished?        = ds~load_int(1);
     storage::change_invitee?       = ds~load_int(1);
+    storage::return_jettons?       = ds~load_int(1);
 
     slice collection_info          = ds~load_ref().begin_parse(); ;; data: 267 + 267 = 534; refs: content + sft_item_code = 2
     storage::admin_address         = collection_info~load_msg_addr();
@@ -94,8 +93,6 @@ global int jettons_for_sale;
     storage::commission_factors    = internal_ds~load_ref();
     storage::refs_dict             = internal_ds~load_dict();
     storage::ref_wallet_code       = internal_ds~load_ref(); 
-
-    jettons_for_sale = storage::jettons_added? ? muldiv(storage::allocated_jettons, (percent_devider - storage::liquidity_part_jetton), percent_devider) : 0;
 }
 
 
@@ -124,6 +121,7 @@ global int jettons_for_sale;
             .store_int(storage::jettons_added?, 1)
             .store_int(storage::sale_finished?, 1)
             .store_int(storage::change_invitee?, 1)
+            .store_int(storage::return_jettons?, 1)
 
             .store_ref( ;; collection_info
                 begin_cell()
@@ -187,6 +185,7 @@ builder store_pool_params_native_jetton(builder b, int jetton_root_workchain, in
 
 () sell_tokens(int query_id, int msg_value, slice request_address, slice buyer_address, int price_factor, int price_devider, 
                 int min_purchase_ton, int max_purchase_ton, slice ref_address, int cashback_factor) impure inline {
+    int jettons_for_sale = storage::jettons_added? ? muldiv(storage::allocated_jettons, (percent_devider - storage::liquidity_part_jetton), percent_devider) : 0;
     msg_value -= gas::purchase;
     int jettons_to_purchase = muldiv(msg_value, price_devider, price_factor);
     storage::jettons_sold += jettons_to_purchase;
@@ -268,7 +267,7 @@ builder store_pool_params_native_jetton(builder b, int jetton_root_workchain, in
 }
 
 
-() finish_sale(slice sender_address, int msg_value, int query_id) impure inline {
+() end_sale(slice sender_address, int msg_value, int query_id) impure inline {
     ;; Sale failed
     if (storage::ton_collected < storage::min_ton_collected) { 
         send_jettons(query_id, storage::allocated_jettons, storage::creator_address, storage::creator_address, storage::jetton_wallet_address,
@@ -278,9 +277,15 @@ builder store_pool_params_native_jetton(builder b, int jetton_root_workchain, in
     else {
         int total_used_jettons = muldiv(storage::jettons_sold, percent_devider, (percent_devider - storage::liquidity_part_jetton));
         
-        int jettons_to_burn = storage::allocated_jettons - total_used_jettons;
-        if (jettons_to_burn) {
-            burn_jettons(query_id, jettons_to_burn, storage::jetton_wallet_address, sender_address, gas::burn_jettons, mode::pay_fees_separately);
+        int unused_jettons = storage::allocated_jettons - total_used_jettons;
+        if (unused_jettons) {
+            if (storage::return_jettons?) {
+                send_jettons(query_id, unused_jettons, storage::creator_address, storage::creator_address, storage::jetton_wallet_address, 
+                             gas::send_jettons, mode::pay_fees_separately, 1, begin_cell().store_uint(0, 32).store_slice("Return unsold jettons").end_cell());
+            }
+            else {
+                burn_jettons(query_id, unused_jettons, storage::jetton_wallet_address, sender_address, gas::burn_jettons, mode::pay_fees_separately);                
+            }
         }
         int jettons_for_liquidity = muldiv(total_used_jettons, storage::liquidity_part_jetton, percent_devider);
         
@@ -422,7 +427,7 @@ builder store_pool_params_native_jetton(builder b, int jetton_root_workchain, in
         throw_unless(exc::sale_not_finished, now() > storage::sale_end_time);
         throw_if(exc::sale_finished, storage::sale_finished?);
         
-        finish_sale(sender_address, msg_value, query_id);
+        end_sale(sender_address, msg_value, query_id);
         return ();
     }
 
@@ -528,7 +533,7 @@ builder store_pool_params_native_jetton(builder b, int jetton_root_workchain, in
         return ();
     }
 
-    if (op == op::excesses) {
+    if ((op == op::excesses) | (op == op::dedust_payout)) {
         send_excess(storage::creator_address, query_id, 0, mode::carry_remaining_gas);
         return ();
     }
@@ -579,6 +584,7 @@ builder store_pool_params_native_jetton(builder b, int jetton_root_workchain, in
 
 (int, int, slice, cell, cell) get_jetton_data() method_id {
     load_data();
+    int jettons_for_sale = storage::jettons_added? ? muldiv(storage::allocated_jettons, (percent_devider - storage::liquidity_part_jetton), percent_devider) : 0;
     return (storage::jettons_sold, storage::jettons_added? & (storage::jettons_sold <= jettons_for_sale) & (now() <= storage::sale_end_time), storage::creator_address, storage::content, storage::sft_item_code);
 }
 
@@ -598,9 +604,10 @@ slice get_ref_address(slice owner_address) method_id {
 }
 
 
-(int, slice, slice, cell, cell, cell, cell, int, int, cell, cell, int, int, int, int,
- int, int, int, int, int, int, int, int, slice, slice, slice, slice, int, int, int, int) get_storage_data() method_id {
+(int, slice, slice, cell, cell, cell, cell, int, int, cell, cell, int, int, int, int, int,
+ int, int, int, int, int, int, int, slice, slice, slice, slice, int, int, int, int, int) get_storage_data() method_id {
     load_data();
+    int jettons_for_sale = storage::jettons_added? ? muldiv(storage::allocated_jettons, (percent_devider - storage::liquidity_part_jetton), percent_devider) : 0;
     
     return (
          storage::init?,
@@ -643,6 +650,7 @@ slice get_ref_address(slice owner_address) method_id {
         storage::jettons_added?,        ;; Were jettons added to smart contract? (int1)
         storage::sale_finished?,        ;; Were collected TON sent to recipients? (int1)
         storage::change_invitee?,       ;; is changing user's invitee after first purchase allowed? (int1)
-        jettons_for_sale
+        jettons_for_sale,
+        storage::return_jettons?
     );
 }
