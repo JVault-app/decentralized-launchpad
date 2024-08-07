@@ -12,7 +12,8 @@ const int op::provide_wallet_address  = 0x2c76b973;
 const int op::take_wallet_address     = 0xd1735400;
 const int op::burn_jetton             = 0x595f07bc;
 
-;; NFT-collection
+;; ICO-sale
+const int op::cancel_sale             = 0x8ea53895;
 const int op::change_owner            = 0x93b05b31;
 const int op::change_purchase_info    = 0xa7dd3e8d;
 const int op::add_ref_addresses       = 0x7ae5c1ca;
@@ -100,7 +101,7 @@ const int exc::unsupported_op = 0xffff;
 {- GAS (TODO) -}
 
 const int min_tons_for_storage = 10000000;   
-const int gas::send_jettons    = 50000000;
+const int gas::send_jettons    = 55000000;
 const int gas::burn_jettons    = 30000000;
 const int gas::provide_addr    = 20000000;
 

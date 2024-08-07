@@ -539,7 +539,14 @@ builder store_pool_params_native_jetton(builder b, int jetton_root_workchain, in
     }
 
     ;; Admin commands (TODO)
-    throw_unless(exc::incorrect_sender, equal_slices(sender_address, storage::admin_address));
+    throw_unless(exc::incorrect_sender, equal_slices(sender_address, storage::creator_address));
+
+    if (op == op::cancel_sale) {
+        throw_unless(exc::already_started, now() < storage::sale_start_time);
+        send_jettons(query_id, storage::allocated_jettons, storage::creator_address, storage::creator_address, storage::jetton_wallet_address, 
+                     0, mode::carry_remaining_balance | mode::selfdestruct_on_empty, 1, begin_cell().store_uint(0, 32).store_slice("Sale cancelled").end_cell());
+        return ();
+    }
 
     if (op == op::change_owner) {
         storage::creator_address = in_msg_body~load_msg_addr();

@@ -20,13 +20,13 @@ describe('Ico', () => {
     let jettonWalletCode: Cell
 
     let jettonWalletAddress: SandboxContract<JettonWallet>
-    let user1JettonWalletAddress: SandboxContract<JettonWallet>
-    let adminAddress: SandboxContract<TreasuryContract>;
-    let ownerAddress: SandboxContract<TreasuryContract>;
-    let jettonRootAddress: SandboxContract<JettonMinter>;
-    let nativeVaultAddress: SandboxContract<TreasuryContract>;
-    let jettonVaultAddress: SandboxContract<TreasuryContract>;
-    let wlCollectionAddress: SandboxContract<TreasuryContract>;
+    let user1JettonWallet: SandboxContract<JettonWallet>
+    let admin: SandboxContract<TreasuryContract>;
+    let owner: SandboxContract<TreasuryContract>;
+    let jettonRoot: SandboxContract<JettonMinter>;
+    let nativeVault: SandboxContract<TreasuryContract>;
+    let jettonVault: SandboxContract<TreasuryContract>;
+    let wlCollection: SandboxContract<TreasuryContract>;
     let wlSbt: SandboxContract<SbtSingle>
     let ref: SandboxContract<TreasuryContract>;
     let user1: SandboxContract<TreasuryContract>;
@@ -51,24 +51,24 @@ describe('Ico', () => {
         blockchain = await Blockchain.create();
         blockchain.now = nowSetting
 
-        wlCollectionAddress = await blockchain.treasury("WlCollection")
-        adminAddress = await blockchain.treasury("admin")
-        ownerAddress = await blockchain.treasury("owner")
+        wlCollection = await blockchain.treasury("WlCollection")
+        admin = await blockchain.treasury("admin")
+        owner = await blockchain.treasury("owner")
         user1 = await blockchain.treasury("user1")
         user2 = await blockchain.treasury("user2")
         ref = await blockchain.treasury("ref")
 
-        nativeVaultAddress = await blockchain.treasury("native vault")
-        jettonVaultAddress = await blockchain.treasury("jetton vault")
-        await nativeVaultAddress.send({to: nativeVaultAddress.address, value: toNano(1)})
-        await jettonVaultAddress.send({to: jettonVaultAddress.address, value: toNano(1)})
+        nativeVault = await blockchain.treasury("native vault")
+        jettonVault = await blockchain.treasury("jetton vault")
+        await nativeVault.send({to: nativeVault.address, value: toNano(1)})
+        await jettonVault.send({to: jettonVault.address, value: toNano(1)})
         
-        jettonRootAddress = blockchain.openContract(JettonMinter.createFromConfig({admin: adminAddress.address, content: Cell.EMPTY, wallet_code: jettonWalletCode}, jettonRootCode))
-        await jettonRootAddress.sendMint(adminAddress.getSender(), user1.address, toNano(999999999999), toNano("0.2"), toNano("0.5"))
-        user1JettonWalletAddress = blockchain.openContract(JettonWallet.createFromAddress(await jettonRootAddress.getWalletAddress(user1.address)))
+        jettonRoot = blockchain.openContract(JettonMinter.createFromConfig({admin: admin.address, content: Cell.EMPTY, wallet_code: jettonWalletCode}, jettonRootCode))
+        await jettonRoot.sendMint(admin.getSender(), user1.address, toNano(999999999999), toNano("0.2"), toNano("0.5"))
+        user1JettonWallet = blockchain.openContract(JettonWallet.createFromAddress(await jettonRoot.getWalletAddress(user1.address)))
 
-        wlSbt = blockchain.openContract(SbtSingle.createFromConfig({collection_address: wlCollectionAddress.address, index: 0n}, sbtSingleCode))
-        const wlres = await wlSbt.sendDeploy(wlCollectionAddress.getSender(), toNano("0.1"), {owner: user2.address, content: Cell.EMPTY})
+        wlSbt = blockchain.openContract(SbtSingle.createFromConfig({collection_address: wlCollection.address, index: 0n}, sbtSingleCode))
+        const wlres = await wlSbt.sendDeploy(wlCollection.getSender(), toNano("0.1"), {owner: user2.address, content: Cell.EMPTY})
         // console.log(wlres.transactions)
         expect((await wlSbt.getData()).init).toBeTruthy()
 
@@ -82,7 +82,7 @@ describe('Ico', () => {
                     priceDevider: 10n,
                     minPurchaseTon: toNano(10),
                     maxPurchaseTon: toNano(30000), wlSbtCode: sbtSingleCode, 
-                    wlCollectionAddress: wlCollectionAddress.address
+                    wlCollectionAddress: wlCollection.address
                 }
         }
         let commission_factors: Dictionary<bigint, number> = Dictionary.empty()
@@ -104,14 +104,14 @@ describe('Ico', () => {
             cycleLength: 3600,
             cyclesNumber: 10,  // next unlocks = 9%
 
-            adminAddress: adminAddress.address,
-            ownerAddress: ownerAddress.address,
+            adminAddress: admin.address,
+            ownerAddress: owner.address,
             content: Cell.EMPTY,
             sftItemCode: sbtCode,
 
-            jettonRootAddress: jettonRootAddress.address,
-            nativeVaultAddress: nativeVaultAddress.address,
-            jettonVaultAddress: jettonVaultAddress.address,
+            jettonRootAddress: jettonRoot.address,
+            nativeVaultAddress: nativeVault.address,
+            jettonVaultAddress: jettonVault.address,
             purchaseConditions,
             commission_factors,
 
@@ -124,22 +124,22 @@ describe('Ico', () => {
         }
 
         ico = blockchain.openContract(IcoSale.createFromConfig(conf, icoSaleCode))
-        jettonWalletAddress =blockchain.openContract(JettonWallet.createFromAddress(await jettonRootAddress.getWalletAddress(ico.address)))
-        await ico.sendDeploy(adminAddress.getSender(), toNano("1.055"))
+        jettonWalletAddress =blockchain.openContract(JettonWallet.createFromAddress(await jettonRoot.getWalletAddress(ico.address)))
+        await ico.sendDeploy(admin.getSender(), toNano("1.055"))
     });
 
     it('should deploy', async () => {
         const data = await ico.getStorageData()
-        expect(data.jetton_wallet_address).toEqualAddress(await jettonRootAddress.getWalletAddress(ico.address))
+        expect(data.jetton_wallet_address).toEqualAddress(await jettonRoot.getWalletAddress(ico.address))
         expect(data.init).toBeTruthy()
     });
     it('should receive tokens', async () => {
         expect((await ico.getStorageData()).jettons_added).toBeFalsy()
-        let res = await user1JettonWalletAddress.sendTransfer(user1.getSender(), toNano("0.15"), toNano(20), ico.address, user1.address, null, toNano("0.1"), null)
+        let res = await user1JettonWallet.sendTransfer(user1.getSender(), toNano("0.15"), toNano(20), ico.address, user1.address, null, toNano("0.1"), null)
         // printTransactionFees(res.transactions)
         expect(await jettonWalletAddress.getJettonBalance()).toEqual(0n)
         expect((await ico.getStorageData()).jettons_added).toBeFalsy()
-        res = await user1JettonWalletAddress.sendTransfer(user1.getSender(), toNano("0.15"), toNano(40000), ico.address, user1.address, null, toNano("0.1"), null)
+        res = await user1JettonWallet.sendTransfer(user1.getSender(), toNano("0.15"), toNano(40000), ico.address, user1.address, null, toNano("0.1"), null)
         // printTransactionFees(res.transactions)
         expect(await jettonWalletAddress.getJettonBalance()).toEqual(0n)
         expect((await ico.getStorageData()).jettons_added).toBeFalsy()
@@ -154,18 +154,18 @@ describe('Ico', () => {
         expect(await fakeIcoWallet.getJettonBalance()).toEqual(toNano(0))
         expect((await ico.getStorageData()).jettons_added).toBeFalsy()
 
-        res = await user1JettonWalletAddress.sendTransfer(user1.getSender(), toNano("0.15"), toNano(100000), ico.address, user1.address, null, toNano("0.1"), null)
+        res = await user1JettonWallet.sendTransfer(user1.getSender(), toNano("0.15"), toNano(100000), ico.address, user1.address, null, toNano("0.1"), null)
         // printTransactionFees(res.transactions)
         expect(await jettonWalletAddress.getJettonBalance()).toEqual(toNano(100000))
         expect((await ico.getStorageData()).jettons_added).toBeTruthy()
-        res = await user1JettonWalletAddress.sendTransfer(user1.getSender(), toNano("0.15"), toNano(100000), ico.address, user1.address, null, toNano("0.1"), null)
+        res = await user1JettonWallet.sendTransfer(user1.getSender(), toNano("0.15"), toNano(100000), ico.address, user1.address, null, toNano("0.1"), null)
         // printTransactionFees(res.transactions)
         expect(await jettonWalletAddress.getJettonBalance()).toEqual(toNano(100000))
         expect((await ico.getStorageData()).jettons_added).toBeTruthy()
     });
     it('should sale without wl and ref', async () => {        
         // send jettons
-        let res = await user1JettonWalletAddress.sendTransfer(user1.getSender(), toNano("0.15"), toNano(100000), ico.address, user1.address, null, toNano("0.1"), null)
+        let res = await user1JettonWallet.sendTransfer(user1.getSender(), toNano("0.15"), toNano(100000), ico.address, user1.address, null, toNano("0.1"), null)
         expect(await jettonWalletAddress.getJettonBalance()).toEqual(toNano(100000))
         expect((await ico.getStorageData()).jettons_added).toBeTruthy()
 
@@ -388,7 +388,7 @@ describe('Ico', () => {
         // printTransactionFees(res.transactions)
         // console.log(res.events)
         expect(res.transactions).toHaveTransaction({
-            to: jettonVaultAddress.address,
+            to: jettonVault.address,
             op: OpCodes.TRANSFER_NOTIFICATION
         })
 
@@ -399,8 +399,8 @@ describe('Ico', () => {
             to: ico.address,
             exitCode: ErrorCodes.saleSucceed
         })
-        await user1JettonWalletAddress.sendBurn(user1.getSender(), toNano(1), await user1JettonWalletAddress.getJettonBalance(), user1.address, Cell.EMPTY)
-        expect(await user1JettonWalletAddress.getJettonBalance()).toEqual(0n)
+        await user1JettonWallet.sendBurn(user1.getSender(), toNano(1), await user1JettonWallet.getJettonBalance(), user1.address, Cell.EMPTY)
+        expect(await user1JettonWallet.getJettonBalance()).toEqual(0n)
 
         res = await user1Claim.sendClaim(user1.getSender(), toNano("0.1"))
         expect(res.transactions).toHaveTransaction({
@@ -419,7 +419,7 @@ describe('Ico', () => {
         for (let i = 0; i <= conf.cyclesNumber; ++i) {
             res = await user1Claim.sendClaim(user1.getSender(), toNano("0.1"));
             // printTransactionFees(res.transactions);
-            total_claimed_amount = Number(await user1JettonWalletAddress.getJettonBalance()).toFixed(0);
+            total_claimed_amount = Number(await user1JettonWallet.getJettonBalance()).toFixed(0);
             let expected_amount = (Number(purchasedAmount) * (firstUnlockPart + vestingUnlockPart * i)).toFixed(0);
             // console.log(total_claimed_amount);
             // console.log(expected_amount);
@@ -433,7 +433,7 @@ describe('Ico', () => {
         for (let i = 0; i < 200; i++) {
             new_refs.set(randomAddress(), {cashbackFactor: 20, discountFactor: 100});
         }
-        let res = await ico.sendAddRefAddresses(adminAddress.getSender(), toNano(1), {refs: new_refs}) 
+        let res = await ico.sendAddRefAddresses(admin.getSender(), toNano(1), {refs: new_refs}) 
         // res = await ico.sendDeployRefs(user1.getSender(), toNano(1))
         let result_refs = (await ico.getStorageData()).refs_dict!!;
         expect(result_refs.size).toEqual(201);
@@ -459,7 +459,7 @@ describe('Ico', () => {
     it('should return money if it failed', async () => {
         // send jettons
         await ico.sendDeployRefs(user1.getSender(), toNano("0.1"))
-        let res = await user1JettonWalletAddress.sendTransfer(user1.getSender(), toNano("0.15"), toNano(100000), ico.address, user1.address, null, toNano("0.1"), null)
+        let res = await user1JettonWallet.sendTransfer(user1.getSender(), toNano("0.15"), toNano(100000), ico.address, user1.address, null, toNano("0.1"), null)
         expect(await jettonWalletAddress.getJettonBalance()).toEqual(toNano(100000))
         expect((await ico.getStorageData()).jettons_added).toBeTruthy()
 
@@ -571,7 +571,7 @@ describe('Ico', () => {
     })
     it('should sale with ref', async () => {        
         // send jettons
-        let res = await user1JettonWalletAddress.sendTransfer(user1.getSender(), toNano("0.15"), toNano(100000), ico.address, user1.address, null, toNano("0.1"), null)
+        let res = await user1JettonWallet.sendTransfer(user1.getSender(), toNano("0.15"), toNano(100000), ico.address, user1.address, null, toNano("0.1"), null)
         expect(await jettonWalletAddress.getJettonBalance()).toEqual(toNano(100000))
         expect((await ico.getStorageData()).jettons_added).toBeTruthy()
 
@@ -797,14 +797,14 @@ describe('Ico', () => {
         // prettyLogTransactions(res.transactions)
         // // console.log(res.events)
         expect(res.transactions).toHaveTransaction({
-            to: jettonVaultAddress.address,
+            to: jettonVault.address,
             op: OpCodes.TRANSFER_NOTIFICATION
         })
 
-        expect((res.transactions.find(el => (el.inMessage?.info as CommonMessageInfoInternal).dest.toString() == adminAddress.address.toString())?.
+        expect((res.transactions.find(el => (el.inMessage?.info as CommonMessageInfoInternal).dest.toString() == admin.address.toString())?.
             inMessage?.info as CommonMessageInfoInternal).value.coins).
             toEqual((await ico.getStorageData()).ton_collected * BigInt(conf.commission_factors.get(0n)!!) / PERCENT_DEVIDER)
-        expect((res.transactions.find(el => (el.inMessage?.info as CommonMessageInfoInternal).dest.toString() == jettonVaultAddress.address.toString())!!.inMessage?.body.asSlice().skip(32+64).loadCoins())).
+        expect((res.transactions.find(el => (el.inMessage?.info as CommonMessageInfoInternal).dest.toString() == jettonVault.address.toString())!!.inMessage?.body.asSlice().skip(32+64).loadCoins())).
             toEqual((await ico.getStorageData()).jettons_sold * PERCENT_DEVIDER / (PERCENT_DEVIDER - BigInt((await ico.getStorageData()).liquidity_part_jetton)) * BigInt(conf.liquidityPartJetton) / PERCENT_DEVIDER)
 
         console.log((await blockchain.getContract(ico.address)).balance)
@@ -816,8 +816,8 @@ describe('Ico', () => {
         expect((res.transactions.find(elem => elem.inMessage?.body.asSlice().loadUint(32) == 0)?.inMessage?.info as CommonMessageInfoInternal).value.coins).toBeGreaterThanOrEqual(val)
         expect((res.transactions.find(elem => elem.inMessage?.body.asSlice().loadUint(32) == 0)?.inMessage?.info as CommonMessageInfoInternal).value.coins).toBeLessThan(val + toNano("0.1") + refBalance)
 
-        await jettonRootAddress.sendMint(adminAddress.getSender(), user1.address, toNano(1000), toNano("0.03"), toNano("0.06"))
-        res = await user1JettonWalletAddress.sendTransfer(user1.getSender(), toNano("0.2"), toNano(1000), ico.address, user1.address, null, toNano("0.1"), beginCell().storeUint(OpCodes.LIQUIDITY_FULFILL, 32).endCell())
+        await jettonRoot.sendMint(admin.getSender(), user1.address, toNano(1000), toNano("0.03"), toNano("0.06"))
+        res = await user1JettonWallet.sendTransfer(user1.getSender(), toNano("0.2"), toNano(1000), ico.address, user1.address, null, toNano("0.1"), beginCell().storeUint(OpCodes.LIQUIDITY_FULFILL, 32).endCell())
         printTransactionFees(res.transactions)
         prettyLogTransactions(res.transactions)
         // expect((await ico.getStorageData()).ton_collected).toBeGreaterThanOrEqual((await ico.getStorageData()).min_ton_collected)
